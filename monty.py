@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # -------------
     # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution :
     # The letter may be in the desk or one of the 8 drawers.
-    distribution = [(.2, 'Desk'), (.8, [1,2,3,4,5,6,7,8])]
+    distribution = [(0.2, 'Desk'), (0.8, [1,2,3,4,5,6,7,8])]
 
     # If I opened the first drawer and it's not there...
     plot(select(distribution, lambda e: [c for c in e if c != 1]))
@@ -63,11 +63,12 @@ if __name__ == '__main__':
     # Desk [===========================             ] 66.93%
     #    8 [=============                           ] 33.07%
 
+
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
     # 1% of women have breast cancer.
-    cancer_distribution = [(0.01, 'cancer'), (.99, 'no cancer')]
+    cancer_distribution = [(0.01, 'cancer'), (0.99, 'no cancer')]
     def positive_mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
@@ -81,13 +82,13 @@ if __name__ == '__main__':
     # Note that probabilities are taken in order, so 1 is taken just as "all rest".
     distribution = [
         # Cancer
-        (.01, [
-            (.8, 'True positive'),
+        (0.01, [
+            (0.8, 'True positive'),
             (1, 'False negative')
         ]),
         # No cancer
         (1, [
-            (.096, 'False positive'),
+            (0.096, 'False positive'),
             (1, 'True negative')
         ])
     ]
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     plot(select(distribution, lambda e: [c for c in e if 'positive' in c]))
     # False positive [=====================================   ] 92.01%
     #  True positive [===                                     ] 7.99%
+
 
     # Monty Hall problem
     # ------------------
