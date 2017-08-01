@@ -1,39 +1,68 @@
+import sys
 import random
 from collections import Counter
 
 def flip(chance=0.5):
+    """
+    Returns True with probability `chance`.
+    flip() = flip(0.5) = fair coin
+    flip(0.1) = 10% chance of True
+    """
     return random.random() < chance
 
-def possibilities(d, scale=1):
+def flatten_distribution(d, scale=1):
+    """
+    Transform a nested distribution into a flat list of pairs
+    (probability, value). If the "distribution" is just a list of values,
+    assume uniform probability.
+    """
     if isinstance(d, dict):
         for key, value in d.items():
-            yield from possibilities(value, scale*key)
+            yield from flatten_distribution(value, scale*key)
     elif isinstance(d, list) and len(d) and isinstance(d[0], tuple) and len(d[0]) == 2:
         for key, value in d:
-            yield from possibilities(value, scale*key)
+            yield from flatten_distribution(value, scale*key)
     elif isinstance(d, (range, list, tuple, set)):
         length = len(d)
         for value in d:
-            yield from possibilities(value, scale/length)
+            yield from flatten_distribution(value, scale/length)
     else:
         yield (scale, d)
 
-def examples(p):
-    p = list(p)
+def generate_examples(distribution):
+    """
+    Given a (potentially nested) distribution, generates infniite random
+    instances drawn from this distribution.
+    """
+    total = 0
+    running = []
+    for probability, value in flatten_distribution(distribution):
+        total += probability
+        running.append((total, value))
+    if total < 1:
+        if 1 - total < sys.float_info.epsilon:
+            # Compensate for floating point innacuracies.
+            running[-1] = (1, running[-1][1])
+        else:
+            raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
     while True:
-        r = random.random()
-        for probability, value in p:
-            r -= probability
-            if r <= 0:
-                yield value
-                break
-        
-def select(d, process=lambda c: c, n=100000):
-    counter = Counter(process(e for i, e in zip(range(n), examples(possibilities(d)))))
-    total = sum(counter.values())
+        choice = random.random()
+        yield next(value for r, value in running if r >= choice)
+
+def select(distribution, process=lambda c: c, n=100000):
+    """
+    Given a distribution and a function to process lists of examples, returns
+    the distribution of processed examples.
+    """
+    examples = generate_examples(distribution)
+    counter = Counter(process(next(examples) for i in range(n)))
+    total = sum(counter.values()) # Note that `process` may change the number of examples.
     return {value: count/total for value, count in counter.most_common()}
 
 def plot(dictionary):
+    """
+    Prints a horizontal bar plot of values in the given dictionary.
+    """
     items = [(str(key), value) for key, value in dictionary.items()]
     longest_key = max(len(key) for key, value in items)
     for key, value in sorted(items, key=lambda a: (a[1], a[0]), reverse=True):
