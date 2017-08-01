@@ -68,14 +68,17 @@ if __name__ == '__main__':
 	# For a given game, what is the strategy that wins the car?
 	def best_strategy(car_position):
 		empty_door = show_empty_door(car_position)
-		return 'switch' if switch(empty_door)==car_position else 'stay'
+		if switch(empty_door) == car_position:
+			return 'switch'
+		else:
+			return 'stay'
 
-	# Generate a ton of examples, compute the best strategy for each, and show
-	# the likelihood of each strategy one winning.
+	# Generate a ton of examples and compute the likelihood of each strategy
+	# winning.
 	def process(examples):
 		return [best_strategy(car_position) for car_position in examples]
 	evaluation = select(car_distribution, process)
-	# evaluation -> {'switch': 0.6639, 'stay': 0.3361}
+	# evaluation = {'switch': 0.6639, 'stay': 0.3361}
 
 	plot(evaluation)
 	# switch [==========================              ] 66.39%%
