@@ -30,28 +30,53 @@ def select(d, process=lambda c: c, n=100000):
 	total = sum(counter.values())
 	return {value: count/total for value, count in counter.most_common()}
 
-d = [(.2, 'Desk'), (.8, range(1, 8+1))]
-print(list(possibilities(d)))
+def plot(dictionary):
+	items = [(str(key), value) for key, value in dictionary.items()]
+	longest_key = max(len(key) for key, value in items)
+	for key, value in sorted(items, key=lambda a: a[1], reverse=True):
+		bar = '['+(round(value * 40) * '=').ljust(40)+']'
+		print(key.rjust(longest_key), bar, '{:.2%}%'.format(value))
 
-#print(select(d, id))
-#print(select(d, lambda v: v not in [1, 2, 3, 4, 5, 6, 7])[8])
+if __name__ == '__main__':
+	#d = [(.2, 'Desk'), (.8, range(1, 8+1))]
+	#print(list(possibilities(d)))
 
-car_distribution = [1, 2, 3]
-def open_door(car_position):
-	if car_position == 1:
-		return random.choice([2, 3])
-	elif car_position == 2:
-		return 3
-	elif car_position == 3:
-		return 2
-def switch(opened_door):
-	if opened_door == 2:
-		return 3
-	elif opened_door == 3:
-		return 2
-def best_strategy(car_position):
-	opened_door = open_door(car_position)
-	return 'switch' if switch(opened_door)==car_position else 'stay'
-def process(examples):
-	return [best_strategy(car_position) for car_position in examples]
-print(select(car_distribution, process))
+	#print(select(d, id))
+	#print(select(d, lambda v: v not in [1, 2, 3, 4, 5, 6, 7])[8])
+
+	# A car is put behind one of three doors, evenly distributed.
+	car_distribution = [1, 2, 3]
+
+	# The participant chooses number 1.
+
+	# The host opens one of the other doors, revealing it's empty.
+	def show_empty_door(car_position):
+		if car_position == 1:
+			return random.choice([2, 3])
+		elif car_position == 2:
+			return 3
+		elif car_position == 3:
+			return 2
+
+	# Seeing the empty door, the participant may choose to switch.
+	def switch(empty_door):
+		if empty_door == 2:
+			return 3
+		elif empty_door == 3:
+			return 2
+
+	# For a given game, what is the strategy that wins the car?
+	def best_strategy(car_position):
+		empty_door = show_empty_door(car_position)
+		return 'switch' if switch(empty_door)==car_position else 'stay'
+
+	# Generate a ton of examples, compute the best strategy for each, and show
+	# the likelihood of each strategy one winning.
+	def process(examples):
+		return [best_strategy(car_position) for car_position in examples]
+	evaluation = select(car_distribution, process)
+	# evaluation -> {'switch': 0.6639, 'stay': 0.3361}
+
+	plot(evaluation)
+	# switch [==========================              ] 66.39%%
+	#   stay [=============                           ] 33.61%%
