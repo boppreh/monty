@@ -2,15 +2,6 @@ import sys
 import random
 from collections import Counter
 
-def flip(chance=0.5):
-    """
-    Returns True with probability `chance`.
-    flip() = flip(0.5) = fair coin
-    flip(0.1) = 10% chance of True
-    """
-    return random.random() < chance
-
-DEFAULT_N_EXAMPLES = 100000
 class Distribution:
     """
     Class representing a distribution of possible values. Example:
@@ -56,14 +47,17 @@ class Distribution:
             choice = random.random()
             yield next(value for r, value in running if r >= choice)
 
-    def plot(self):
+    def plot(self, title=None):
         """
         Prints a horizontal bar plot of values in the given distribution.
         """
+        if title is not None:
+            print(title)
         for prob, value in sorted(self.pairs, reverse=True):
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
-            print('{:>29} {} {:>7.2%}'.format(value, bar, prob))
+            print('{:>29} {} {:>7.2%}'.format(str(value), bar, prob))
         print('')
+        return self
 
     def join(self, *rest):
         """
@@ -85,7 +79,7 @@ class Distribution:
         else:
             return self.join(*[self]*(n-1))
 
-    def brute_force(self, fn=lambda c: c, n=DEFAULT_N_EXAMPLES):
+    def monte_carlo(self, fn=lambda c: c, n=100000):
         """
         Given a distribution and a function to process lists of examples, returns
         the distribution of processed examples.
@@ -116,9 +110,14 @@ class Distribution:
     def filter(self, fn=lambda c: c):
         """
         Returns a distribution made of only the items that passed the given
-        filter.
+        filter. If `fn` returns a number, this is taken as the new probability
+        of that value, and the total distribution is updated as such.
         """
-        return self.nest(lambda e: [(1, e)] if fn(e) else [])
+        def helper(e):
+            result = fn(e)
+            return [(float(result), e)] if result else []
+        return self.nest(helper)
+    update = filter
 
     def map(self, fn):
         """
@@ -137,8 +136,6 @@ class Distribution:
     def __eq__(self, other):
         return isinstance(other, Distribution) and self.pairs == other.pairs
 
-D = Distribution
-
 class Uniform(Distribution):
     """
     Class representing an uniform distribution of possible values. Example:
@@ -151,22 +148,26 @@ class Uniform(Distribution):
     """
     def __init__(self, *items):
         super().__init__(*((1/len(items), item) for item in items))
+
+D = Distribution
 U = Uniform
 
 if __name__ == '__main__':
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
-    def mammogram(status):
-        # 80% of mammograms detect breast cancer when it is there.
-        # 9.6% of mammograms detect breast cancer when it’s not there.
-        return [(0.8, status)] if status == 'Cancer' else [(0.096, status)]
-    # 1% of candidates have breast cancer.
-    Distribution((0.01, 'Cancer'), (1, 'No cancer')).nest(mammogram).plot()
+    # 80% of mammograms detect breast cancer when it is there.
+    # 9.6% of mammograms detect breast cancer when it’s not there.
+    mammogram = lambda status: 0.8 if status == 'Cancer' else 0.096
+    # 1% of candidates have breast cancer. What's the likelihood in case of
+    # positive mammogram?
+    Distribution((0.01, 'Cancer'), (1, 'No cancer')).filter(mammogram).plot()
+    #                No cancer [=====================================   ]  92.24%
+    #                   Cancer [===                                     ]   7.76%
 
     # Alternative solution: model the test results in the distribution itself.
     # Note that probabilities are taken in order, so 1 is interpreted as "all
-    # remaining probability".
+    # remaining probability in this group".
     Distribution(
         # Cancer.
         (0.01, Distribution(
@@ -187,8 +188,9 @@ if __name__ == '__main__':
     # Waiting at the bus stop
     # -----------------------
     # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution
-    # It's 23:30, you are at the bus stop. Buses usually run each 30 minutes,
-    # but you are not sure if they are operating at this time (60% chance).
+    # It's 23:30, you are at the bus stop. Buses usually run at an interval of
+    # 30 minutes, but you are only 60% sure they are operating at all at this
+    # time.
     bus_distribution = Distribution(
         (0.6, Uniform(
             'Will arrive at 23:35',
@@ -221,50 +223,50 @@ if __name__ == '__main__':
     # A car is put behind one of three doors.
     car_positions = Uniform(1, 2, 3)
 
-    def best_strategy(car_position):
-        # The participant chooses door number 1.
-
+    def open_door(car_position):
         # The host opens one of the other doors that does not contain the car.
-        empty_door = {1: random.choice([2, 3]), 2: 3, 3: 2}[car_position]
+        opened_door = {1: random.choice([2, 3]), 2: 3, 3: 2}[car_position]
+        return (car_position, opened_door)
 
+    def best_strategy(state):
+        car_position, opened_door = state
+
+        # The participant starts selecting door number 1.
         # Seeing the empty door, the participant may choose to switch.
-        switched = {2: 3, 3: 2}[empty_door]
+        switched = {2: 3, 3: 2}[opened_door]
 
         # For *this* game, which strategy wins?
-        return 'switching wins' if switched == car_position else 'staying wins'
+        return 'Switching wins' if switched == car_position else 'Staying wins'
 
-        # Note all of this is equivalent to:
-        # return 'stay' if car_position == 1 else 'switch'
-        # But if you realised this, there would be no need for simulating.
+        # Note that because only two doors remain, and the strategies are
+        # always opposites, you can negate the final condition and simplify
+        # to just "return 'stay' if car_position == 1 else 'switch'".
+        # But if you realise this, the result becomes trivial.
 
-    # Generate examples and compute the total likelihood of each strategy winning.
-    car_positions.map(best_strategy).plot()
-    #           switching wins [===========================             ]  66.67%
-    #             staying wins [=============                           ]  33.33%
+    # Compute the total likelihood of each strategy winning.
+    car_positions.map(open_door).map(best_strategy).plot()
+    #           Switching wins [===========================             ]  66.67%
+    #             Staying wins [=============                           ]  33.33%
 
 
     # Monty Hall - Ignorant Monty version
     # -----------------------------------
-    # The host opens a remaining door at random.
-    car_position_distribution = Uniform(1, 2, 3)
-    opened_door_distribution = Uniform(1, 2, 3)
-    game_distributions = car_position_distribution + opened_door_distribution
-    def process(state):
-        car_position, opened_door = state
-        if opened_door not in [car_position, 1]:
-            return Uniform(best_strategy(car_position))
-        else:
-            return []
-    game_distributions.nest(process).plot()
-    #game_distributions.brute_force(process).plot()
-    #            switching wins [====================                    ]  50.00%
-    #              staying wins [====================                    ]  50.00%
+    # Same setup as classic Monty Hall, now with host opens door 2 or 3 at
+    # random.
+    opened_doors = Uniform(2, 3)
+    # But we only look at situations where opened door *just happened* to not
+    # be the car door.
+    game = (car_positions + opened_doors).filter(lambda s: s[0] != s[1])
+    # What are the strategy likelihoods for winning then?
+    game.map(best_strategy).plot()
+    #            Switching wins [====================                    ]  50.00%
+    #              Staying wins [====================                    ]  50.00%
 
 
     # Throw two dice
     # --------------
-    # I win if the difference is 0,1,2. You win if it is 3,4,5. Wanna play?
     # From http://www.mathteacherctk.com/blog/2013/01/13/a-pair-of-probability-games-for-beginners/
+    # I win if the difference is 0,1,2. You win if it is 3,4,5. Wanna play?
     dice = Uniform(*range(1, 7))
     (dice * 2).map(lambda pair: 'No' if abs(pair[0]-pair[1])<=2 else 'Yes').plot()
     #                       No [===========================             ]  66.67%
