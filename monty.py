@@ -95,28 +95,6 @@ class Distribution:
         total = sum(counter.values()) # Note that `fn` may change the number of examples.
         return Distribution(*((count/total, value) for value, count in counter.most_common()))
 
-    def filter(self, fn=lambda c: bool(c)):
-        """
-        Returns a distribution made of only the items that passed the given
-        filter.
-        """
-        total = 0
-        new_pairs = []
-        for probability, value in self.pairs:
-            if fn(value):
-                total += probability
-                new_pairs.append((probability, value))
-        scale = 1 / total
-        return Distribution(*((p*scale, v) for p, v in new_pairs))
-
-    def map(self, fn):
-        """
-        Applies a function to each value in this distribution, then returns the
-        distribution of the aggregated results.
-        """
-        return self.nest(lambda e: [(1, fn(e))])
-    group = group_by = map
-
     def nest(self, fn):
         """
         Replaces every value with a sub-distribution given by `fn(value)`.
@@ -134,6 +112,21 @@ class Distribution:
         scale = 1/sum(counter.values())
         return Distribution(*((p*scale, v) for v, p in counter.most_common()))
     replace = sub = nest
+
+    def filter(self, fn=lambda c: c):
+        """
+        Returns a distribution made of only the items that passed the given
+        filter.
+        """
+        return self.nest(lambda e: [(1, e)] if fn(e) else [])
+
+    def map(self, fn):
+        """
+        Applies a function to each value in this distribution, then returns the
+        distribution of the aggregated results.
+        """
+        return self.nest(lambda e: [(1, fn(e))])
+    group = group_by = map
 
     def __iter__(self):
         return iter(self.pairs)
