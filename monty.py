@@ -12,6 +12,15 @@ def flip(chance=0.5):
 
 DEFAULT_N_EXAMPLES = 100000
 class Distribution:
+    """
+    Class representing a distribution of possible values. Example:
+
+        Distribution(
+            (0.495, 'Heads'),
+            (0.495, 'Tails'),
+            (0.01, 'Sideways'),
+        )
+    """
     def __init__(self, *pairs):
         self.pairs = []
         for probability, value in pairs:
@@ -75,13 +84,32 @@ class Distribution:
         return Distribution(*((count/total, value) for value, count in counter.most_common()))
 
     def filter(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+        """
+        Given a distribution and a function to filter examples, returns
+        the distribution of filtered examples. This is a helper function based
+        on `Distribution.apply`.
+        """
         return self.apply(lambda e: (c for c in e if fn(c)), n=n)
 
     def map(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+        """
+        Given a distribution and a function to modify examples, returns
+        the distribution of modified examples. This is a helper function based
+        on `Distribution.apply`.
+        """
         return self.apply(lambda e: (fn(c) for c in e), n=n)
 D = Distribution
 
 class Uniform(Distribution):
+    """
+    Class representing an uniform distribution of possible values. Example:
+
+        Uniform('Heads', 'Tails', 'Sideways') == Distribution(
+            (0.333, 'Heads'),
+            (0.333, 'Tails'),
+            (0.333, 'Sideways'),
+        )
+    """
     def __init__(self, *items):
         super().__init__(*((1/len(items), item) for item in items))
 U = Uniform
@@ -90,21 +118,20 @@ if __name__ == '__main__':
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
-    # 1% of candidates have breast cancer.
-    cancer_distribution = D((0.01, 'cancer'), (0.99, 'no cancer'))
     def positive_mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
         return flip(0.8 if status == 'cancer' else 0.096)
+    # 1% of candidates have breast cancer.
     # If the test was positive, what's the likelihood of having cancer?
-    cancer_distribution.filter(positive_mammogram).plot()
+    Distribution((0.01, 'cancer'), (0.99, 'no cancer')).filter(positive_mammogram).plot()
     # no cancer [=====================================   ]  91.95%
     #    cancer [===                                     ]   8.05%
 
     # Alternative solution: model the test results in the distribution itself.
     # Note that probabilities are taken in order, so 1 is interpreted as "all
     # remaining probability".
-    test_distribution = Distribution(
+    Distribution(
         # Cancer
         (0.01, Distribution(
             (0.8, 'True positive'),
@@ -115,9 +142,7 @@ if __name__ == '__main__':
             (0.096, 'False positive'),
             (1, 'True negative')
         ))
-    )
-    # If the test was positive, what's the likelihood of having cancer?
-    test_distribution.filter(lambda e: 'positive' in e).plot()
+    ).filter(lambda e: 'positive' in e).plot()
     # False positive [=====================================   ] 92.01%
     #  True positive [===                                     ] 7.99%
 
@@ -191,10 +216,8 @@ if __name__ == '__main__':
             # Participant choose door number 1. The opened door is neither the
             # participant's door, nor the door containing the car.
             if opened_door not in [car_position, 1]:
-                # Seeing the empty door, the participant may choose to switch.
-                switched = {2: 3, 3: 2}[opened_door]
-                # For *this* game, which strategy wins?
-                yield 'switch wins' if switched == car_position else 'stay wins'
+                yield best_strategy(car_position)
     game_distributions.apply(process).plot()
     # switch wins [====================                    ]  50.01%
     #   stay wins [====================                    ]  49.99%
+
