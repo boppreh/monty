@@ -167,6 +167,9 @@ class Distribution:
         return Distribution(*((scale*p, v) for p, v in opposite_pairs))
     __neg__ = opposite
 
+    def utility(self, utility_function=lambda v: v):
+        return sum(p * utility_function(v) for p, v in self)
+
     def __repr__(self):
         return repr(self.pairs)
 
@@ -196,6 +199,18 @@ class Uniform(Distribution):
     def __init__(self, *items):
         super().__init__(*((1/len(items), item) for item in items))
 
+class Range(Uniform):
+    def __init__(self, a, b=None):
+        super().__init__(*range(a, b))
+class Count(Uniform):
+    def __init__(self, a, b=None):
+        if b is None:
+            a, b = 1, a
+        super().__init__(*range(a, b+1))
+class Permutations(Uniform):
+    def __init__(self, *items):
+        super().__init__(*itertools.permutations(items))
+
 # Shorthand.
 D = Distribution
 U = Uniform
@@ -203,18 +218,18 @@ S = Singleton
 
 # Common discrete distributions used in examples.
 coin = Uniform('Heads', 'Tails')
-dice = die = d6 = Uniform(1, 2, 3, 4, 5, 6)
-d4 = Uniform(*range(1, 5))
-d8 = Uniform(*range(1, 9))
-d10 = Uniform(*range(1, 11))
-d12 = Uniform(*range(1, 13))
-d20 = Uniform(*range(1, 21))
-d100 = Uniform(*range(1, 101))
+dice = die = d6 = Count(6)
+d4 = Count(4)
+d8 = Count(8)
+d10 = Count(10)
+d12 = Count(12)
+d20 = Count(20)
+d100 = Count(100)
 card_ranks = Uniform('Ace', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'Jack', 'Queen', 'King')
 card_suits = Uniform('Clubs', 'Diamonds', 'Hearts', 'Spades')
 deck = join(card_ranks, card_suits)
 rock_paper_scissors = Uniform('Rock', 'Paper', 'Scissors')
-monty_hall_doors = Uniform(('Goat', 'Goat', 'Car'), ('Goat', 'Car', 'Goat'), ('Car', 'Goat', 'Goat'))
+monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
 
 # Common filters and maps.
 import operator
@@ -225,11 +240,13 @@ ne = not_equal = not_equals = lambda s: operator.ne(*s)
 gt = lambda s: operator.gt(*s)
 ge = lambda s: operator.ge(*s)
 contains = lambda s: operator.contains(*s)
+
+add = sum
 sub = lambda s: operator.lt(*s)
 difference = lambda s: abs(s[0]-s[1])
-add = sum
 from functools import reduce
 mul = product = lambda s: reduce(operator.mul, s)
+
 first = lambda s: s[0]
 second = lambda s: s[1]
 third = lambda s: s[2]
@@ -446,6 +463,7 @@ if __name__ == '__main__':
     #                       19   0.49% [                                        ]
     #                        5   0.10% [                                        ]
     #                       20   0.10% [                                        ]
+    # Nope.
 
 
     # Dungeons and confused dragons
@@ -577,4 +595,3 @@ if __name__ == '__main__':
     }).plot()
     #                Lottery A  50.00% [====================                    ]
     #                Lottery B  50.00% [====================                    ]
-
