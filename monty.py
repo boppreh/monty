@@ -23,12 +23,17 @@ class Distribution:
     """
     def __init__(self, *pairs):
         result = []
+        total = 0
         for probability, value in pairs:
+            if probability == 1: probability = 1 - total
+            total += probability
+
             if isinstance(value, Distribution):
                 for sub_probability, sub_value in value.pairs:
                     result.append((probability*sub_probability, sub_value))
             else:
                 result.append((probability, value))
+                
         self.pairs = tuple(result)
 
     def generate(self):
