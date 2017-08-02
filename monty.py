@@ -72,6 +72,14 @@ class Distribution:
         else:
             d2 = rest[0].join(*rest[1:])
         return Distribution(*((p1*p2, (v1, v2)) for p1, v1 in self.pairs for p2, v2 in d2.pairs))
+    __add__ = join
+
+    def __mul__(self, n):
+        assert int(n) == n and n > 0
+        if n == 1:
+            return self
+        else:
+            return self.join(*[self]*(n-1))
 
     def apply(self, fn=lambda c: c, n=DEFAULT_N_EXAMPLES):
         """
@@ -205,6 +213,7 @@ if __name__ == '__main__':
     # switch wins [===========================             ]  67.01%
     #   stay wins [=============                           ]  32.99%
 
+
     # Monty Hall - Ignorant Monty version
     # -----------------------------------
     # The host opens a remaining door at random.
@@ -221,3 +230,14 @@ if __name__ == '__main__':
     # switch wins [====================                    ]  50.01%
     #   stay wins [====================                    ]  49.99%
 
+
+    # Throw two dice
+    # --------------
+    # I win if the difference is 0,1,2. You win if it is 3,4,5. Wanna play?
+    # From http://www.mathteacherctk.com/blog/2013/01/13/a-pair-of-probability-games-for-beginners/
+    dice = Uniform(*range(1, 7))
+    (dice * 2).map(lambda pair: 'No' if abs(pair[0]-pair[1])<=2 else 'Yes').plot()
+
+    # I win if a 2 or a 5 shows on either die. (Not a sum of 2 or 5, just an
+    # occurrence of a 2 or a 5.) Otherwise, you win. Wanna play?
+    (dice * 2).map(lambda pair: 'No' if set(pair) & set((2, 5)) else 'Yes').plot()
