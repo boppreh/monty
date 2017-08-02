@@ -54,11 +54,9 @@ class Distribution:
         """
         Prints a horizontal bar plot of values in the given distribution.
         """
-        items = [(prob, str(value)) for prob, value in self.pairs]
-        longest_key = max(len(value) for prob, value in items)
-        for prob, value in sorted(items, reverse=True):
+        for prob, value in sorted(self.pairs, reverse=True):
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
-            print(value.rjust(longest_key), bar, '{:>7.2%}'.format(prob))
+            print('{:>29} {} {:>7.2%}'.format(value, bar, prob))
         print('')
 
     def join(self, *rest):
@@ -81,7 +79,7 @@ class Distribution:
         else:
             return self.join(*[self]*(n-1))
 
-    def apply(self, fn=lambda c: c, n=DEFAULT_N_EXAMPLES):
+    def brute_force(self, fn=lambda c: c, n=DEFAULT_N_EXAMPLES):
         """
         Given a distribution and a function to process lists of examples, returns
         the distribution of processed examples.
@@ -91,21 +89,43 @@ class Distribution:
         total = sum(counter.values()) # Note that `fn` may change the number of examples.
         return Distribution(*((count/total, value) for value, count in counter.most_common()))
 
-    def filter(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+    def filter(self, fn=lambda c: bool(c)):
         """
-        Given a distribution and a function to filter examples, returns
-        the distribution of filtered examples. This is a helper function based
-        on `Distribution.apply`.
+        Returns a distribution made of only the items that passed the given
+        filter.
         """
-        return self.apply(lambda e: (c for c in e if fn(c)), n=n)
+        total = 0
+        new_pairs = []
+        for probability, value in self.pairs:
+            if fn(value):
+                total += probability
+                new_pairs.append((probability, value))
+        scale = 1 / total
+        return Distribution(*((p*scale, v) for p, v in new_pairs))
 
-    def map(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+    def map(self, fn):
         """
-        Given a distribution and a function to modify examples, returns
-        the distribution of modified examples. This is a helper function based
-        on `Distribution.apply`.
+        Applies a function to each value in this distribution, then returns the
+        distribution of the aggregated results.
         """
-        return self.apply(lambda e: (fn(c) for c in e), n=n)
+        return self.fork(lambda e: [(1, fn(e))])
+
+    def fork(self, fn):
+        """
+        Given a function `fn` that returns (probability, value) pairs,
+        splits each value in this distribution into a sub-distribution,
+        returning the resulting, aggregated distribution.
+        """
+        counter = Counter()
+        for probability, value in self.pairs:
+            result = fn(value)
+            # Allows for e.g. fn=lambda e: Uniform(e, e+1, e+2)
+            if isinstance(result, Distribution):
+                result = result.pairs
+            for sub_probability, sub_value in result:
+                counter[sub_value] += sub_probability * probability
+        return Distribution(*((p, v) for v, p in counter.most_common()))
+
 D = Distribution
 
 class Uniform(Distribution):
@@ -126,13 +146,16 @@ if __name__ == '__main__':
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
-    def positive_mammogram(status):
+    def mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
-        return flip(0.8 if status == 'cancer' else 0.096)
+        if status == 'cancer':
+            return [(0.8, 'True positive'), (1, 'False negative')]
+        else:
+            return [(0.096, 'False positive'), (1, 'True negative')]
     # 1% of candidates have breast cancer.
     # If the test was positive, what's the likelihood of having cancer?
-    Distribution((0.01, 'cancer'), (0.99, 'no cancer')).filter(positive_mammogram).plot()
+    Distribution((0.01, 'cancer'), (1, 'no cancer')).fork(mammogram).filter(lambda e: 'positive' in e).plot()
     # no cancer [=====================================   ]  91.95%
     #    cancer [===                                     ]   8.05%
 
@@ -226,7 +249,7 @@ if __name__ == '__main__':
             # participant's door, nor the door containing the car.
             if opened_door not in [car_position, 1]:
                 yield best_strategy(car_position)
-    game_distributions.apply(process).plot()
+    game_distributions.brute_force(process).plot()
     # switch wins [====================                    ]  50.01%
     #   stay wins [====================                    ]  49.99%
 
