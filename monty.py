@@ -10,95 +10,114 @@ def flip(chance=0.5):
     """
     return random.random() < chance
 
-def flatten_distribution(d, scale=1):
-    """
-    Transform a nested distribution into a flat list of pairs
-    (probability, value). If the "distribution" is just a list of values,
-    assume uniform probability.
-    """
-    if isinstance(d, list) and len(d) and isinstance(d[0], tuple) and len(d[0]) == 2:
-        for key, value in d:
-            yield from flatten_distribution(value, scale*key)
-    elif isinstance(d, (range, list, tuple, set)):
-        length = len(d)
-        for value in d:
-            yield from flatten_distribution(value, scale/length)
-    else:
-        yield (scale, d)
+DEFAULT_N_EXAMPLES = 100000
+class Distribution:
+    def __init__(self, *pairs):
+        self.pairs = []
+        for probability, value in pairs:
+            if isinstance(value, Distribution):
+                for sub_probability, sub_value in value.pairs:
+                    self.pairs.append((probability*sub_probability, sub_value))
+            else:
+                self.pairs.append((probability, value))
 
-def generate_examples(distribution):
-    """
-    Given a (potentially nested) distribution, generates infniite random
-    instances drawn from this distribution.
-    """
-    total = 0
-    running = []
-    for probability, value in flatten_distribution(distribution):
-        total += probability
-        running.append((total, value))
-    if total < 1:
-        if 1 - total < sys.float_info.epsilon:
-            # Compensate for floating point innacuracies.
-            running[-1] = (1, running[-1][1])
+    def generate(self):
+        """
+        Given a (potentially nested) distribution, generates infniite random
+        instances drawn from this distribution.
+        """
+        total = 0
+        running = []
+        for probability, value in self.pairs:
+            total += probability
+            running.append((total, value))
+        if total < 1:
+            if 1 - total < sys.float_info.epsilon:
+                # Compensate for floating point innacuracies.
+                running[-1] = (1, running[-1][1])
+            else:
+                raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
+        while True:
+            choice = random.random()
+            yield next(value for r, value in running if r >= choice)
+
+    def plot(self):
+        """
+        Prints a horizontal bar plot of values in the given distribution.
+        """
+        items = [(prob, str(value)) for prob, value in self.pairs]
+        longest_key = max(len(value) for prob, value in items)
+        for prob, value in sorted(items, reverse=True):
+            bar = '['+(round(prob * 40) * '=').ljust(40)+']'
+            print(value.rjust(longest_key), bar, '{:>7.2%}'.format(prob))
+        print('')
+
+    def join(self, *rest):
+        """
+        Joins many (potientially nested) distributions into a single flat
+        distribution containing all possible combinations, with associated
+        probability.
+        """
+        if len(rest) == 1:
+            d2, = rest
         else:
-            raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
-    while True:
-        choice = random.random()
-        yield next(value for r, value in running if r >= choice)
+            d2 = rest[0].join(*rest[1:])
+        return Distribution(*((p1*p2, (v1, v2)) for p1, v1 in self.pairs for p2, v2 in d2.pairs))
 
-def select(distribution, process=lambda c: c, n=100000):
-    """
-    Given a distribution and a function to process lists of examples, returns
-    the distribution of processed examples.
-    """
-    examples = generate_examples(distribution)
-    counter = Counter(process(next(examples) for i in range(n)))
-    total = sum(counter.values()) # Note that `process` may change the number of examples.
-    return {value: count/total for value, count in counter.most_common()}
+    def apply(self, fn=lambda c: c, n=DEFAULT_N_EXAMPLES):
+        """
+        Given a distribution and a function to process lists of examples, returns
+        the distribution of processed examples.
+        """
+        examples = self.generate()
+        counter = Counter(fn(next(examples) for i in range(n)))
+        total = sum(counter.values()) # Note that `fn` may change the number of examples.
+        return Distribution(*((count/total, value) for value, count in counter.most_common()))
 
-def plot(dictionary):
-    """
-    Prints a horizontal bar plot of values in the given dictionary.
-    """
-    items = [(str(key), value) for key, value in dictionary.items()]
-    longest_key = max(len(key) for key, value in items)
-    for key, value in sorted(items, key=lambda a: (a[1], a[0]), reverse=True):
-        bar = '['+(round(value * 40) * '=').ljust(40)+']'
-        print(key.rjust(longest_key), bar, '{:>7.2%}'.format(value))
-    print('')
+    def filter(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+        return self.apply(lambda e: (c for c in e if fn(c)), n=n)
+
+    def map(self, fn=lambda c: True, n=DEFAULT_N_EXAMPLES):
+        return self.apply(lambda e: (fn(c) for c in e), n=n)
+D = Distribution
+
+class Uniform(Distribution):
+    def __init__(self, *items):
+        super().__init__(*((1/len(items), item) for item in items))
+U = Uniform
 
 if __name__ == '__main__':
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
     # 1% of candidates have breast cancer.
-    cancer_distribution = [(0.01, 'cancer'), (0.99, 'no cancer')]
+    cancer_distribution = D((0.01, 'cancer'), (0.99, 'no cancer'))
     def positive_mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
         return flip(0.8 if status == 'cancer' else 0.096)
     # If the test was positive, what's the likelihood of having cancer?
-    plot(select(cancer_distribution, lambda e: [c for c in e if positive_mammogram(c)]))
+    cancer_distribution.filter(positive_mammogram).plot()
     # no cancer [=====================================   ]  91.95%
     #    cancer [===                                     ]   8.05%
 
     # Alternative solution: model the test results in the distribution itself.
     # Note that probabilities are taken in order, so 1 is interpreted as "all
     # remaining probability".
-    tset_distribution = [
+    test_distribution = Distribution(
         # Cancer
-        (0.01, [
+        (0.01, Distribution(
             (0.8, 'True positive'),
             (1, 'False negative')
-        ]),
+        )),
         # No cancer
-        (1, [
+        (1, Distribution(
             (0.096, 'False positive'),
             (1, 'True negative')
-        ])
-    ]
+        ))
+    )
     # If the test was positive, what's the likelihood of having cancer?
-    plot(select(tset_distribution, lambda e: [c for c in e if 'positive' in c]))
+    test_distribution.filter(lambda e: 'positive' in e).plot()
     # False positive [=====================================   ] 92.01%
     #  True positive [===                                     ] 7.99%
 
@@ -108,20 +127,20 @@ if __name__ == '__main__':
     # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution
     # It's 23:30, you are at the bus stop. Buses usually run each 30 minutes,
     # but you are not sure if they are operating at this time (60% chance).
-    bus_distribution = [
-        (0.6, [
+    bus_distribution = Distribution(
+        (0.6, Uniform(
             'Will arrive at 23:35',
             'Will arrive at 23:40',
             'Will arrive at 23:45',
             'Will arrive at 23:50',
             'Will arrive at 23:55',
             'Will arrive at 00:00',
-        ]),
+        )),
         (1, 'Not operating'),
-    ]
+    )
     # 5 minutes pass. It's now 23:35, and the bus has not yet arrived. What
     # are the new likelihoods?
-    plot(select(bus_distribution, lambda e: [c for c in e if '23:35' not in c]))
+    bus_distribution.filter(lambda e: '23:35' not in e).plot()
     #        Not operating [==================                      ]  44.52%
     # Will arrive at 23:40 [====                                    ]  11.20%
     # Will arrive at 23:55 [====                                    ]  11.08%
@@ -130,7 +149,7 @@ if __name__ == '__main__':
     # Will arrive at 23:50 [====                                    ]  11.04%
 
     # It's now 23:55, and the bus has not yet arrived.
-    plot(select(bus_distribution, lambda e: [c for c in e if '23:' not in c]))
+    bus_distribution.filter(lambda e: '23:' not in e).plot()
     #        Not operating [================================        ]  79.97%
     # Will arrive at 00:00 [========                                ]  20.03%
 
@@ -138,7 +157,7 @@ if __name__ == '__main__':
     # Monty Hall problem
     # ------------------
     # A car is put behind one of three doors.
-    car_positions = [1, 2, 3]
+    car_positions = Uniform(1, 2, 3)
 
     def best_strategy(car_position):
         # The participant chooses door number 1.
@@ -157,29 +176,25 @@ if __name__ == '__main__':
         # But if you realised this, there would be no need for simulating.
 
     # Generate examples and compute the total likelihood of each strategy winning.
-    plot(select(
-        car_positions,
-        lambda e: (best_strategy(car_position) for car_position in e)
-    ))
+    car_positions.map(best_strategy).plot()
     # switch wins [===========================             ]  67.01%
     #   stay wins [=============                           ]  32.99%
 
     # Monty Hall - Ignorant Monty version
     # -----------------------------------
     # The host opens a remaining door at random.
-    game_distributions = [
-        [{'car': 1, 'opened': 2}, {'car': 1, 'opened': 3}],
-        [{'car': 2, 'opened': 2}, {'car': 2, 'opened': 3}],
-        [{'car': 3, 'opened': 2}, {'car': 3, 'opened': 3}],
-    ]
-    def best_strategy(state):
-        # Player choose door number 1.
-        # For *this* game, which strategy wins?
-        return 'stay wins' if state['car'] == 1 else 'switch wins'
-    # The revealed door just happens to not contain the car.
-    plot(select(
-        game_distributions,
-        lambda e: (best_strategy(c) for c in e if c['opened'] != c['car'])
-    ))
+    car_position_distribution = Uniform(1, 2, 3)
+    opened_door_distribution = Uniform(1, 2, 3)
+    game_distributions = car_position_distribution.join(opened_door_distribution)
+    def process(examples):
+        for car_position, opened_door in examples:
+            # Participant choose door number 1. The opened door is neither the
+            # participant's door, nor the door containing the car.
+            if opened_door not in [car_position, 1]:
+                # Seeing the empty door, the participant may choose to switch.
+                switched = {2: 3, 3: 2}[opened_door]
+                # For *this* game, which strategy wins?
+                yield 'switch wins' if switched == car_position else 'stay wins'
+    game_distributions.apply(process).plot()
     # switch wins [====================                    ]  50.01%
     #   stay wins [====================                    ]  49.99%
