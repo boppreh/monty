@@ -27,25 +27,29 @@ class Distribution:
 
         self.pairs = tuple(result)
 
-    def generate(self):
+    def generate(self, n=-1):
         """
         Given a (potentially nested) distribution, generates infniite random
-        instances drawn from this distribution.
+        instances drawn from this distribution. If `n` is given, the only `n`
+        are generated.
         """
         total = 0
         running = []
         for probability, value in self.pairs:
             total += probability
             running.append((total, value))
+
         if total < 1:
             if 1 - total < sys.float_info.epsilon:
                 # Compensate for floating point innacuracies.
                 running[-1] = (1, running[-1][1])
             else:
                 raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
-        while True:
+
+        while n != 0:
             choice = random.random()
             yield next(value for r, value in running if r >= choice)
+            n -= 1
 
     def plot(self, title=None):
         """
@@ -55,7 +59,9 @@ class Distribution:
             print(title)
         for prob, value in sorted(self.pairs, reverse=True):
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
-            print('{:>29} {} {:>7.2%}'.format(str(value), bar, prob))
+            # 29 is used to make the whole line be 80 characters, ensuring
+            # every plot is aligned with every other plot.
+            print('{:>29} {:>7.2%} {}'.format(str(value), prob, bar))
         print('')
         return self
 
@@ -277,3 +283,9 @@ if __name__ == '__main__':
     (dice * 2).map(lambda pair: 'No' if set(pair) & set((2, 5)) else 'Yes').plot()
     #                       No [======================                  ]  55.56%
     #                      Yes [==================                      ]  44.44%
+
+    # Degenerate cases still plot as expected.
+    # Uniform().plot('Empty')
+    # Uniform(1).plot('Single-value')
+    # Distribution((0.1, 'a'), (0.1, 'b')).plot('Incomplete')
+    # Distribution((0.9, 'a'), (0.9, 'b')).plot('Overlap')
