@@ -33,7 +33,7 @@ class Distribution:
                     result.append((probability*sub_probability, sub_value))
             else:
                 result.append((probability, value))
-                
+
         self.pairs = tuple(result)
 
     def generate(self):
@@ -114,23 +114,29 @@ class Distribution:
         Applies a function to each value in this distribution, then returns the
         distribution of the aggregated results.
         """
-        return self.fork(lambda e: [(1, fn(e))])
+        return self.nest(lambda e: [(1, fn(e))])
+    group = group_by = map
 
-    def fork(self, fn):
+    def nest(self, fn):
         """
-        Given a function `fn` that returns (probability, value) pairs,
-        splits each value in this distribution into a sub-distribution,
-        returning the resulting, aggregated distribution.
+        Replaces every value with a sub-distribution given by `fn(value)`.
+        `fn` may return a Distribution (or Uniform) instance, or simply a
+        list of (probability, value) pairs. Returns the flattened
+        aggregated distribution.
         """
         counter = Counter()
         for probability, value in self.pairs:
             result = fn(value)
-            # Allows for e.g. fn=lambda e: Uniform(e, e+1, e+2)
-            if isinstance(result, Distribution):
-                result = result.pairs
-            for sub_probability, sub_value in result:
+            # Allows for e.g. fn=lambda e: Uniform(e, e+1, e+2) and
+            # automatically processes remaining/1 probabilities.
+            for sub_probability, sub_value in Distribution(*result):
                 counter[sub_value] += sub_probability * probability
-        return Distribution(*((p, v) for v, p in counter.most_common()))
+        scale = 1/sum(counter.values())
+        return Distribution(*((p*scale, v) for v, p in counter.most_common()))
+    replace = sub = nest
+
+    def __iter__(self):
+        return iter(self.pairs)
 
     def __hash__(self):
         return hash(self.pairs)
@@ -161,33 +167,28 @@ if __name__ == '__main__':
     def mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
-        if status == 'cancer':
-            return [(0.8, 'True positive'), (1, 'False negative')]
-        else:
-            return [(0.096, 'False positive'), (1, 'True negative')]
+        return [(0.8, status)] if status == 'Cancer' else [(0.096, status)]
     # 1% of candidates have breast cancer.
-    # If the test was positive, what's the likelihood of having cancer?
-    Distribution((0.01, 'cancer'), (1, 'no cancer')).fork(mammogram).filter(lambda e: 'positive' in e).plot()
-    # no cancer [=====================================   ]  91.95%
-    #    cancer [===                                     ]   8.05%
+    Distribution((0.01, 'Cancer'), (1, 'No cancer')).nest(mammogram).plot()
 
     # Alternative solution: model the test results in the distribution itself.
     # Note that probabilities are taken in order, so 1 is interpreted as "all
     # remaining probability".
     Distribution(
-        # Cancer
+        # Cancer.
         (0.01, Distribution(
             (0.8, 'True positive'),
-            (1, 'False negative')
+            (1,   'False negative')
         )),
-        # No cancer
+        # No cancer.
         (1, Distribution(
             (0.096, 'False positive'),
-            (1, 'True negative')
+            (1,     'True negative')
         ))
     ).filter(lambda e: 'positive' in e).plot()
-    # False positive [=====================================   ] 92.01%
-    #  True positive [===                                     ] 7.99%
+    # If the test was positive, what's the likelihood of having cancer?
+    #           False positive [=====================================   ]  92.24%
+    #            True positive [===                                     ]   7.76%
 
 
     # Waiting at the bus stop
@@ -209,17 +210,17 @@ if __name__ == '__main__':
     # 5 minutes pass. It's now 23:35, and the bus has not yet arrived. What
     # are the new likelihoods?
     bus_distribution.filter(lambda e: '23:35' not in e).plot()
-    #        Not operating [==================                      ]  44.52%
-    # Will arrive at 23:40 [====                                    ]  11.20%
-    # Will arrive at 23:55 [====                                    ]  11.08%
-    # Will arrive at 23:45 [====                                    ]  11.08%
-    # Will arrive at 00:00 [====                                    ]  11.08%
-    # Will arrive at 23:50 [====                                    ]  11.04%
+    #            Not operating [==================                      ]  44.44%
+    #     Will arrive at 23:55 [====                                    ]  11.11%
+    #     Will arrive at 23:50 [====                                    ]  11.11%
+    #     Will arrive at 23:45 [====                                    ]  11.11%
+    #     Will arrive at 23:40 [====                                    ]  11.11%
+    #     Will arrive at 00:00 [====                                    ]  11.11%
 
     # It's now 23:55, and the bus has not yet arrived.
     bus_distribution.filter(lambda e: '23:' not in e).plot()
-    #        Not operating [================================        ]  79.97%
-    # Will arrive at 00:00 [========                                ]  20.03%
+    #            Not operating [================================        ]  80.00%
+    #     Will arrive at 00:00 [========                                ]  20.00%
 
 
     # Monty Hall problem
@@ -237,7 +238,7 @@ if __name__ == '__main__':
         switched = {2: 3, 3: 2}[empty_door]
 
         # For *this* game, which strategy wins?
-        return 'switch wins' if switched == car_position else 'stay wins'
+        return 'switching wins' if switched == car_position else 'staying wins'
 
         # Note all of this is equivalent to:
         # return 'stay' if car_position == 1 else 'switch'
@@ -245,8 +246,8 @@ if __name__ == '__main__':
 
     # Generate examples and compute the total likelihood of each strategy winning.
     car_positions.map(best_strategy).plot()
-    # switch wins [===========================             ]  67.01%
-    #   stay wins [=============                           ]  32.99%
+    #           switching wins [===========================             ]  66.67%
+    #             staying wins [=============                           ]  33.33%
 
 
     # Monty Hall - Ignorant Monty version
@@ -254,16 +255,17 @@ if __name__ == '__main__':
     # The host opens a remaining door at random.
     car_position_distribution = Uniform(1, 2, 3)
     opened_door_distribution = Uniform(1, 2, 3)
-    game_distributions = car_position_distribution.join(opened_door_distribution)
-    def process(examples):
-        for car_position, opened_door in examples:
-            # Participant choose door number 1. The opened door is neither the
-            # participant's door, nor the door containing the car.
-            if opened_door not in [car_position, 1]:
-                yield best_strategy(car_position)
-    game_distributions.brute_force(process).plot()
-    # switch wins [====================                    ]  50.01%
-    #   stay wins [====================                    ]  49.99%
+    game_distributions = car_position_distribution + opened_door_distribution
+    def process(state):
+        car_position, opened_door = state
+        if opened_door not in [car_position, 1]:
+            return Uniform(best_strategy(car_position))
+        else:
+            return []
+    game_distributions.nest(process).plot()
+    #game_distributions.brute_force(process).plot()
+    #            switching wins [====================                    ]  50.00%
+    #              staying wins [====================                    ]  50.00%
 
 
     # Throw two dice
@@ -272,7 +274,11 @@ if __name__ == '__main__':
     # From http://www.mathteacherctk.com/blog/2013/01/13/a-pair-of-probability-games-for-beginners/
     dice = Uniform(*range(1, 7))
     (dice * 2).map(lambda pair: 'No' if abs(pair[0]-pair[1])<=2 else 'Yes').plot()
+    #                       No [===========================             ]  66.67%
+    #                      Yes [=============                           ]  33.33%
 
     # I win if a 2 or a 5 shows on either die. (Not a sum of 2 or 5, just an
     # occurrence of a 2 or a 5.) Otherwise, you win. Wanna play?
     (dice * 2).map(lambda pair: 'No' if set(pair) & set((2, 5)) else 'Yes').plot()
+    #                       No [======================                  ]  55.56%
+    #                      Yes [==================                      ]  44.44%
