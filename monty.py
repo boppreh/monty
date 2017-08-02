@@ -16,10 +16,7 @@ def flatten_distribution(d, scale=1):
     (probability, value). If the "distribution" is just a list of values,
     assume uniform probability.
     """
-    if isinstance(d, dict):
-        for key, value in d.items():
-            yield from flatten_distribution(value, scale*key)
-    elif isinstance(d, list) and len(d) and isinstance(d[0], tuple) and len(d[0]) == 2:
+    if isinstance(d, list) and len(d) and isinstance(d[0], tuple) and len(d[0]) == 2:
         for key, value in d:
             yield from flatten_distribution(value, scale*key)
     elif isinstance(d, (range, list, tuple, set)):
@@ -68,48 +65,27 @@ def plot(dictionary):
     for key, value in sorted(items, key=lambda a: (a[1], a[0]), reverse=True):
         bar = '['+(round(value * 40) * '=').ljust(40)+']'
         print(key.rjust(longest_key), bar, '{:>7.2%}'.format(value))
+    print('')
 
 if __name__ == '__main__':
-    # Letter search
-    # -------------
-    # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution :
-    # The letter may be in the desk or one of the 8 drawers.
-    distribution = [(0.2, 'Desk'), (0.8, [1,2,3,4,5,6,7,8])]
-
-    # If I opened the first drawer and it's not there...
-    plot(select(distribution, lambda e: [c for c in e if c != 1]))
-    # Desk [=========                               ] 22.26%
-    #    4 [=====                                   ] 11.26%
-    #    3 [====                                    ] 11.15%
-    #    6 [====                                    ] 11.14%
-    #    7 [====                                    ] 11.08%
-    #    8 [====                                    ] 11.05%
-    #    2 [====                                    ] 11.04%
-    #    5 [====                                    ] 11.04%
-
-    # If I opened the first 7 drawers and it's there...
-    plot(select(distribution, lambda e: [c for c in e if c not in [1,2,3,4,5,6,7]]))
-    # Desk [===========================             ] 66.93%
-    #    8 [=============                           ] 33.07%
-
-
     # Breast cancer
     # -------------
     # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
-    # 1% of women have breast cancer.
+    # 1% of candidates have breast cancer.
     cancer_distribution = [(0.01, 'cancer'), (0.99, 'no cancer')]
     def positive_mammogram(status):
         # 80% of mammograms detect breast cancer when it is there.
         # 9.6% of mammograms detect breast cancer when it’s not there.
         return flip(0.8 if status == 'cancer' else 0.096)
-    # If the test was positive, what's the new likelihood of having cancer?
+    # If the test was positive, what's the likelihood of having cancer?
     plot(select(cancer_distribution, lambda e: [c for c in e if positive_mammogram(c)]))
     # no cancer [=====================================   ]  91.95%
     #    cancer [===                                     ]   8.05%
 
     # Alternative solution: model the test results in the distribution itself.
-    # Note that probabilities are taken in order, so 1 is taken just as "all rest".
-    distribution = [
+    # Note that probabilities are taken in order, so 1 is interpreted as "all
+    # remaining probability".
+    tset_distribution = [
         # Cancer
         (0.01, [
             (0.8, 'True positive'),
@@ -122,9 +98,41 @@ if __name__ == '__main__':
         ])
     ]
     # If the test was positive, what's the likelihood of having cancer?
-    plot(select(distribution, lambda e: [c for c in e if 'positive' in c]))
+    plot(select(tset_distribution, lambda e: [c for c in e if 'positive' in c]))
     # False positive [=====================================   ] 92.01%
     #  True positive [===                                     ] 7.99%
+
+
+    # Waiting at the bus stop
+    # -----------------------
+    # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution
+    # It's 23:30, you are at the bus stop. Buses usually run each 30 minutes,
+    # but you are not sure if they are operating at this time (60% chance).
+    bus_distribution = [
+        (0.6, [
+            'Will arrive at 23:35',
+            'Will arrive at 23:40',
+            'Will arrive at 23:45',
+            'Will arrive at 23:50',
+            'Will arrive at 23:55',
+            'Will arrive at 00:00',
+        ]),
+        (1, 'Not operating'),
+    ]
+    # 5 minutes pass. It's now 23:35, and the bus has not yet arrived. What
+    # are the new likelihoods?
+    plot(select(bus_distribution, lambda e: [c for c in e if '23:35' not in c]))
+    #        Not operating [==================                      ]  44.52%
+    # Will arrive at 23:40 [====                                    ]  11.20%
+    # Will arrive at 23:55 [====                                    ]  11.08%
+    # Will arrive at 23:45 [====                                    ]  11.08%
+    # Will arrive at 00:00 [====                                    ]  11.08%
+    # Will arrive at 23:50 [====                                    ]  11.04%
+
+    # It's now 23:55, and the bus has not yet arrived.
+    plot(select(bus_distribution, lambda e: [c for c in e if '23:' not in c]))
+    #        Not operating [================================        ]  79.97%
+    # Will arrive at 00:00 [========                                ]  20.03%
 
 
     # Monty Hall problem
@@ -141,8 +149,8 @@ if __name__ == '__main__':
         # Seeing the empty door, the participant may choose to switch.
         switched = {2: 3, 3: 2}[empty_door]
 
-        # For this game, which strategy wins?
-        return 'switch' if switched == car_position else 'stay'
+        # For *this* game, which strategy wins?
+        return 'switch wins' if switched == car_position else 'stay wins'
 
         # Note all of this is equivalent to:
         # return 'stay' if car_position == 1 else 'switch'
@@ -153,5 +161,25 @@ if __name__ == '__main__':
         car_positions,
         lambda e: (best_strategy(car_position) for car_position in e)
     ))
-    # switch [===========================             ]  66.63%
-    #   stay [=============                           ]  33.37%
+    # switch wins [===========================             ]  67.01%
+    #   stay wins [=============                           ]  32.99%
+
+    # Monty Hall - Ignorant Monty version
+    # -----------------------------------
+    # The host opens a remaining door at random.
+    game_distributions = [
+        [{'car': 1, 'opened': 2}, {'car': 1, 'opened': 3}],
+        [{'car': 2, 'opened': 2}, {'car': 2, 'opened': 3}],
+        [{'car': 3, 'opened': 2}, {'car': 3, 'opened': 3}],
+    ]
+    def best_strategy(state):
+        # Player choose door number 1.
+        # For *this* game, which strategy wins?
+        return 'stay wins' if state['car'] == 1 else 'switch wins'
+    # The revealed door just happens to not contain the car.
+    plot(select(
+        game_distributions,
+        lambda e: (best_strategy(c) for c in e if c['opened'] != c['car'])
+    ))
+    # switch wins [====================                    ]  50.01%
+    #   stay wins [====================                    ]  49.99%
