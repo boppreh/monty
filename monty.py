@@ -22,13 +22,14 @@ class Distribution:
         )
     """
     def __init__(self, *pairs):
-        self.pairs = []
+        result = []
         for probability, value in pairs:
             if isinstance(value, Distribution):
                 for sub_probability, sub_value in value.pairs:
-                    self.pairs.append((probability*sub_probability, sub_value))
+                    result.append((probability*sub_probability, sub_value))
             else:
-                self.pairs.append((probability, value))
+                result.append((probability, value))
+        self.pairs = tuple(result)
 
     def generate(self):
         """
@@ -125,6 +126,12 @@ class Distribution:
             for sub_probability, sub_value in result:
                 counter[sub_value] += sub_probability * probability
         return Distribution(*((p, v) for v, p in counter.most_common()))
+
+    def __hash__(self):
+        return hash(self.pairs)
+
+    def __eq__(self, other):
+        return isinstance(other, Distribution) and self.pairs == other.pairs
 
 D = Distribution
 
