@@ -15,10 +15,10 @@ def join(*ds):
     for pairs in itertools.product(*ds):
         total_p = 1
         value = []
-        for p, v in pairs:
+        for v, p in pairs:
             total_p *= p
             value.append(v)
-        result.append((total_p, tuple(value)))
+        result.append((tuple(value), total_p))
     return Distribution(*result)
 
 class Distribution:
@@ -38,26 +38,26 @@ class Distribution:
             args = [kwargs]
         if len(args) == 1 and isinstance(args[0], dict):
             # Distribution({'a': 0.5, 'b': 0.1, 'c': REST})
-            args = [(value, key) for key, value in args[0].items()]
+            args = args[0].items()
 
         pairs_list = []
         self.total = 0
-        for probability, value in args:
+        for value, probability in args:
             if probability is REST:
                 probability = 1 - self.total
 
             if isinstance(value, Distribution):
-                for sub_probability, sub_value in value.normalized():
-                    pairs_list.append((probability*sub_probability, sub_value))
+                for sub_value, sub_probability in value.normalized():
+                    pairs_list.append((sub_value, probability*sub_probability))
                     self.total += probability*sub_probability
             else:
-                pairs_list.append((probability, value))
+                pairs_list.append((value, probability))
                 self.total += probability
 
         self.pairs = tuple(pairs_list)
 
     def normalized(self):
-        return Distribution(*((p/self.total, v) for p, v in self))
+        return Distribution(*((v, p/self.total) for v, p in self))
 
     def generate(self, n=-1):
         """
@@ -67,20 +67,20 @@ class Distribution:
         """
         total = 0
         running = []
-        for probability, value in self.pairs:
+        for value, probability in self.normalized():
             total += probability
-            running.append((total, value))
+            running.append((value, total))
 
         if total < 1:
             if 1 - total < sys.float_info.epsilon:
                 # Compensate for floating point innacuracies.
-                running[-1] = (1, running[-1][1])
+                running[-1] = (running[-1][1], 1)
             else:
                 raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
 
         while n != 0:
             choice = random.random()
-            yield next(value for r, value in running if r >= choice)
+            yield next(value for value, r in running if r >= choice)
             n -= 1
 
     def plot(self, title=None):
@@ -91,11 +91,10 @@ class Distribution:
             print(title)
 
         counter = Counter()
-        for p, v in self.normalized():
+        for v, p in self.normalized():
             counter[str(v)] += p
-        pairs = counter.most_common()
 
-        for str_value, prob in pairs:
+        for str_value, prob in counter.most_common():
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
             # 29 is used to make the whole line be 80 characters, ensuring
             # every plot is aligned with every other plot.
@@ -115,7 +114,7 @@ class Distribution:
         examples = self.generate()
         counter = Counter(fn(next(examples) for i in range(n)))
         total = sum(counter.values()) # Note that `fn` may change the number of examples.
-        return Distribution(*((count/total, value) for value, count in counter.most_common()))
+        return Distribution(*((value, count/total) for value, count in counter.most_common()))
 
     def _nest(self, fn):
         """
@@ -126,11 +125,11 @@ class Distribution:
         """
         if isinstance(fn, dict): fn = fn.__getitem__
         counter = Counter()
-        for probability, value in self:
-            for sub_probability, sub_value in fn(value):
+        for value, probability in self:
+            for sub_value, sub_probability in fn(value):
                 counter[sub_value] += sub_probability * probability
         scale = 1/sum(counter.values())
-        return Distribution(*((p*scale, v) for v, p in counter.most_common()))
+        return Distribution(*((v, p*scale) for v, p in counter.most_common()))
 
     def filter(self, fn=None, **kwargs):
         """
@@ -152,7 +151,7 @@ class Distribution:
             fn = fn.__contains__
         def helper(e):
             result = fn(e)
-            return [(float(result), e)] if result else []
+            return [(e, float(result))] if result else []
         return self._nest(helper)
     update = filter
 
@@ -164,17 +163,21 @@ class Distribution:
         `fn` can also be a dictionary, mapping values to their replacements.
         """
         if not callable(fn): fn = fn.__getitem__
-        return self._nest(lambda e: Distribution((1, fn(e))))
+        return self._nest(lambda e: Distribution((fn(e), 1)))
     group = group_by = map
 
     def opposite(self):
-        opposite_pairs = [(1-p, v) for p, v in self]
-        scale = 1/sum(p for p, v in opposite_pairs)
-        return Distribution(*((scale*p, v) for p, v in opposite_pairs))
+        """
+        Returns a distribution with the opposite odds for each item, already
+        normalized.
+        """
+        opposite_pairs = [(v, 1-p) for p, v in self]
+        scale = 1/sum(p for v, p in opposite_pairs)
+        return Distribution(*((v, scale*p) for v, p in opposite_pairs))
     __neg__ = opposite
 
     def utility(self, utility_function=lambda v: v):
-        return sum(p * utility_function(v) for p, v in self)
+        return sum(p * utility_function(v) for v, p in self)
 
     def __repr__(self):
         return repr(self.pairs)
@@ -199,11 +202,11 @@ class Uniform(Distribution):
         )
     """
     def __init__(self, *items):
-        super().__init__(*((1/len(items), item) for item in items))
+        super().__init__(*((item, 1/len(items)) for item in items))
 
 class Fixed(Distribution):
     def __init__(self, item):
-        super().__init__((1, item))
+        super().__init__((item, 1))
 class Range(Uniform):
     def __init__(self, a, b=None):
         super().__init__(*range(a, b))
@@ -272,11 +275,11 @@ class Volume(Distribution):
     """
     def __add__(self, other):
         counter = Counter()
-        for p, v in self: counter[v] += p
-        for p, v in other: counter[v] += p
-        return Volume(*((p, v) for v, p in counter.most_common()))
+        for v, p in self: counter[v] += p
+        for v, p in other: counter[v] += p
+        return Volume(*counter.most_common())
     def __mul__(self, n):
-        return Volume(*((p*n, v) for p, v in self))
+        return Volume(*((v, p*n) for v, p in self))
     __rmul__ = __mul__
     def __div__(self, n):
         return self * (1/n)
@@ -292,23 +295,17 @@ if __name__ == '__main__':
     positive_mammogram = {'Cancer': 0.8, 'No cancer': 0.096}
     # 1% of candidates have breast cancer. What's the likelihood after a
     # positive test?
-    Distribution((0.01, 'Cancer'), (REST, 'No cancer')).filter(positive_mammogram).plot()
+    Distribution({'Cancer': 0.01, 'No cancer': REST}).filter(positive_mammogram).plot()
     #                No cancer [=====================================   ]  92.24%
     #                   Cancer [===                                     ]   7.76%
 
     # Alternative solution: model the test results in the distribution itself.
-    Distribution(
+    Distribution({
         # Cancer.
-        (0.01, Distribution(
-            (0.8, 'True positive'),
-            (REST,   'False negative')
-        )),
+        Distribution({'True positive': 0.8, 'False negative': REST}): 0.01,
         # No cancer.
-        (REST, Distribution(
-            (0.096, 'False positive'),
-            (REST,     'True negative')
-        ))
-    ).filter(['True positive', 'False positive']).plot()
+        Distribution({'False positive': 0.096, 'True negative': REST}): REST,
+    }).filter(['True positive', 'False positive']).plot()
     # If the test was positive, what's the likelihood of having cancer?
     #           False positive [=====================================   ]  92.24%
     #            True positive [===                                     ]   7.76%
@@ -320,17 +317,17 @@ if __name__ == '__main__':
     # It's 23:30, you are at the bus stop. Buses usually run at an interval of
     # 30 minutes, but you are only 60% sure they are operating at all at this
     # time.
-    bus_distribution = Distribution(
-        (0.6, Uniform(
+    bus_distribution = Distribution({
+        Uniform(
             'Will arrive at 23:35',
             'Will arrive at 23:40',
             'Will arrive at 23:45',
             'Will arrive at 23:50',
             'Will arrive at 23:55',
             'Will arrive at 00:00',
-        )),
-        (REST, 'Not operating'),
-    )
+        ): 0.6,
+        'Not operating': REST,
+    })
     # 5 minutes pass. It's now 23:35, and the bus has not yet arrived. What
     # are the new likelihoods?
     bus_distribution.filter(lambda e: '23:35' not in e).plot()
@@ -413,7 +410,7 @@ if __name__ == '__main__':
     # From John von Neuman (1951)
 
     # I want a fair coin flip, but I don't trust this coin. Can I "unbias" it?
-    b_coin = Distribution((0.6, 'Heads'), (REST, 'Tails'))
+    b_coin = Distribution(Heads=0.6, Tails=REST)
 
     # Yes! Flip it twice, and retry until they are different. Then look at
     # the first one.
