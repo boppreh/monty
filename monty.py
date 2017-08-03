@@ -113,8 +113,8 @@ class Distribution:
         """
         examples = self.generate()
         counter = Counter(fn(next(examples) for i in range(n)))
-        total = sum(counter.values()) # Note that `fn` may change the number of examples.
-        return Distribution(*((value, count/total) for value, count in counter.most_common()))
+        scale = 1/sum(counter.values()) # Note that `fn` may change the number of examples.
+        return Distribution(*((value, count*scale) for value, count in counter.most_common()))
 
     def _nest(self, fn):
         """
