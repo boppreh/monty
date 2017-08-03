@@ -46,7 +46,6 @@ class Distribution:
             if probability is REST:
                 probability = 1 - self.total
 
-
             if isinstance(value, Distribution):
                 for sub_probability, sub_value in value.normalized():
                     pairs_list.append((probability*sub_probability, sub_value))
@@ -133,7 +132,7 @@ class Distribution:
         scale = 1/sum(counter.values())
         return Distribution(*((p*scale, v) for v, p in counter.most_common()))
 
-    def filter(self, fn=lambda c: bool(c)):
+    def filter(self, fn=None, **kwargs):
         """
         Returns a distribution made of only the items that passed the given
         filter. If `fn` returns a number, this is taken as the new probability
@@ -142,8 +141,15 @@ class Distribution:
         `fn` can also be a dictionary mapping values to results, or a list,
         so that only items in the list will be selected.
         """
-        if isinstance(fn, dict): fn = fn.__getitem__
-        elif not callable(fn): fn = fn.__contains__
+        if kwargs:
+            assert fn is None
+            fn = kwargs.__getitem__
+        elif fn is None:
+            fn = lambda c: c
+        elif isinstance(fn, dict):
+            fn = fn.__getitem__
+        elif not callable(fn):
+            fn = fn.__contains__
         def helper(e):
             result = fn(e)
             return [(float(result), e)] if result else []
@@ -182,10 +188,6 @@ class Distribution:
     def __eq__(self, other):
         return isinstance(other, Distribution) and self.pairs == other.pairs
 
-class Singleton(Distribution):
-    def __init__(self, item):
-        super().__init__((1, item))
-
 class Uniform(Distribution):
     """
     Class representing an uniform distribution of possible values. Example:
@@ -199,6 +201,9 @@ class Uniform(Distribution):
     def __init__(self, *items):
         super().__init__(*((1/len(items), item) for item in items))
 
+class Fixed(Distribution):
+    def __init__(self, item):
+        super().__init__((1, item))
 class Range(Uniform):
     def __init__(self, a, b=None):
         super().__init__(*range(a, b))
@@ -214,7 +219,9 @@ class Permutations(Uniform):
 # Shorthand.
 D = Distribution
 U = Uniform
-S = Singleton
+R = Range
+C = Count
+F = Fixed
 
 # Common discrete distributions used in examples.
 coin = Uniform('Heads', 'Tails')
@@ -251,6 +258,30 @@ first = lambda s: s[0]
 second = lambda s: s[1]
 third = lambda s: s[2]
 last = lambda s: s[-1]
+
+class Volume(Distribution):
+    """
+    Uses the Distribution algorithms to model concentration of solutions.
+    "Probabilities" are treated as volumes and therefore not normalized.
+    Also overrides arithmetic operators to behave like mixing liquids. Example:
+
+        juice = Volume(water=200, orange=600)
+        sugar_water = Volume(water=95, sugar=5)
+        juice + sugar_water/2 # total volume: (200+600 + (95+5)/2) = 850
+        Volume({juice: 1, sugar_water: 1}) # Mix 1-1, total volume: 1.0, 2.5% sugar
+    """
+    def __add__(self, other):
+        counter = Counter()
+        for p, v in self: counter[v] += p
+        for p, v in other: counter[v] += p
+        return Volume(*((p, v) for v, p in counter.most_common()))
+    def __mul__(self, n):
+        return Volume(*((p*n, v) for p, v in self))
+    __rmul__ = __mul__
+    def __div__(self, n):
+        return self * (1/n)
+    __truediv__ = __div__
+
 
 if __name__ == '__main__':
     # Breast cancer
@@ -390,32 +421,26 @@ if __name__ == '__main__':
     #                    Tails  50.00% [====================                    ]
     #                    Heads  50.00% [====================                    ]
 
-    # Mixing drinks
-    # -------------
+    # Mixing solutions
+    # ----------------
+
     # You can also use probability distributions to keep track of
     # concentrations in solutions.
 
-    # This orange juice is 40% water, and 60% pure orange juice.
-    orange_juice = Distribution({'Water': 0.4, 'Orange': REST})
+    # 200 units of water and 600 units of pure orange.
+    juice = Volume(water=200, orange=600).plot('Juice')
 
-    # A cup of sugar water containing 90% water and 10% sugar.
-    sugar_water = Distribution({'Water': 0.9, 'Sugar': REST})
+    # 100 units of sugar water at 5%
+    sugar_water = Volume(water=95, sugar=5).plot('Sugar water')
 
-    # Mix them, 6 parts orange juice and 4 parts sugar water.
-    mixed = Distribution({orange_juice: 6, sugar_water: 4})
+    # Mix all of the juice with half of the sugar water.
+    mix = (juice + sugar_water/2).plot('Mix (juice + sugar_water/2)')
 
-    # What's the distribution of ingredients now?
-    mixed.plot()
-    #                    Water  60.00% [========================                ]
-    #                   Orange  36.00% [==============                          ]
-    #                    Sugar   4.00% [==                                      ]
+    # Remove most of the orange and some of the sugar.
+    mix.filter(water=1, orange=0.01, sugar=0.80).plot('Filtered')
 
-    # Filter away most of the sugar, some of the orange, and a little bit of
-    # the water. What are the new concentrations?
-    mixed.filter({'Water': 0.99, 'Orange': 0.8, 'Sugar': 0.01}).plot()
-    #                    Water  67.32% [===========================             ]
-    #                   Orange  32.64% [=============                           ]
-    #                    Sugar   0.05% [                                        ]
+    # Mix 1 units of juice and sugar water at 50/50, resulting in 2.5% sugar.
+    Volume({juice: 1, sugar_water: 1}).plot('1-1')
 
 
     # Is the coin biased?
@@ -566,7 +591,7 @@ if __name__ == '__main__':
     # In an urn, you have 9 balls of 3 colors: red, blue and yellow. 3 balls
     # are known to be red. All the other balls are either blue or yellow.
 
-    red = Singleton('Red')
+    red = Fixed('Red')
     either = Uniform('Blue', 'Yellow')
     urn = join(red, red, red, either, either, either, either, either, either)
 
