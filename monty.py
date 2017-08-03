@@ -128,8 +128,7 @@ class Distribution:
         for value, probability in self:
             for sub_value, sub_probability in fn(value):
                 counter[sub_value] += sub_probability * probability
-        scale = 1/sum(counter.values())
-        return Distribution(*((v, p*scale) for v, p in counter.most_common()))
+        return Distribution(*counter.most_common())
 
     def filter(self, fn=None, **kwargs):
         """
@@ -425,19 +424,34 @@ if __name__ == '__main__':
     # concentrations in solutions.
 
     # 200 units of water and 600 units of pure orange.
-    juice = Volume(water=200, orange=600).plot('Juice')
+    juice = Volume(water=200, orange=600).plot()
+    #                   orange  75.00% [==============================          ]
+    #                    water  25.00% [==========                              ]
 
     # 100 units of sugar water at 5%
-    sugar_water = Volume(water=95, sugar=5).plot('Sugar water')
+    sugar_water = Volume(water=95, sugar=5).plot()
+    #                    water  95.00% [======================================  ]
+    #                    sugar   5.00% [==                                      ]
 
     # Mix all of the juice with half of the sugar water.
-    mix = (juice + sugar_water/2).plot('Mix (juice + sugar_water/2)')
+    mix = (juice + sugar_water/2).plot()
+    #                   orange  70.59% [============================            ]
+    #                    water  29.12% [============                            ]
+    #                    sugar   0.29% [                                        ]
 
     # Remove most of the orange and some of the sugar.
-    mix.filter(water=1, orange=0.01, sugar=0.80).plot('Filtered')
+    filtered = mix.filter(water=1, orange=0.01, sugar=0.80).plot()
+    #                    water  96.87% [======================================= ]
+    #                   orange   2.35% [=                                       ]
+    #                    sugar   0.78% [                                        ]
+    print(filtered, filtered.total)
+    # (('water', 247.5), ('orange', 6.0), ('sugar', 2.0)) 255.5
 
     # Mix 1 units of juice and sugar water at 50/50, resulting in 2.5% sugar.
-    Volume({juice: 1, sugar_water: 1}).plot('1-1')
+    Volume({juice: 1, sugar_water: 1}).plot()
+    #                    water  60.00% [========================                ]
+    #                   orange  37.50% [===============                         ]
+    #                    sugar   2.50% [=                                       ]
 
 
     # Is the coin biased?
