@@ -3,7 +3,7 @@ import random
 import itertools
 from collections import Counter, defaultdict
 
-REST = {}
+REST = object()
 
 def join(*ds):
     """
@@ -102,7 +102,7 @@ class Distribution:
             yield next(value for value, r in running if r >= choice)
             n -= 1
 
-    def plot(self, title=None, sort=True):
+    def plot(self, title=None, sort=True, include_zero=True):
         """
         Prints a horizontal bar plot of values in the given distribution.
         """
@@ -112,10 +112,11 @@ class Distribution:
         if sort:
             counter = Counter()
             for v, p in self.normalized():
-                counter[str(v)] += p
+                if include_zero or p != 0:
+                    counter[str(v)] += p
             pairs = counter.most_common()
         else:
-            pairs = ((str(v), p) for v, p in self)
+            pairs = ((str(v), p) for v, p in self if include_zero or p != 0)
 
         for str_value, prob in pairs:
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
@@ -227,6 +228,9 @@ class Distribution:
     def __iter__(self):
         return iter(self.pairs)
 
+    def __len__(self):
+        return len(self.pairs)
+
     def __hash__(self):
         return hash(self.pairs)
 
@@ -247,17 +251,31 @@ class Uniform(Distribution):
         super().__init__(*((item, 1/len(items)) for item in items), **kwargs)
 
 class Fixed(Distribution):
+    """
+    A "distribution" of a single item, with 100% probability.
+    """
     def __init__(self, item, **kwargs):
         super().__init__((item, 1), **kwargs)
 class Range(Uniform):
+    """
+    Distribution of integers from the given start value (or 0) up to, but not
+    including, the end value.
+    """
     def __init__(self, a, b=None, **kwargs):
         super().__init__(*range(a, b), **kwargs)
 class Count(Uniform):
+    """
+    Distribution of integers from the given start value (or 1) up to, and
+    including, the end value.
+    """
     def __init__(self, a, b=None, **kwargs):
         if b is None:
             a, b = 1, a
         super().__init__(*range(a, b+1), **kwargs)
 class Permutations(Uniform):
+    """
+    Uniform distribution of all possible permutations of the given values.
+    """
     def __init__(self, *items, **kwargs):
         super().__init__(*itertools.permutations(items), **kwargs)
 
