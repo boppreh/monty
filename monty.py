@@ -255,7 +255,7 @@ ge = lambda s: operator.ge(*s)
 contains = lambda s: operator.contains(*s)
 
 add = sum
-sub = lambda s: operator.lt(*s)
+sub = lambda s: operator.sub(*s)
 difference = lambda s: abs(s[0]-s[1])
 from functools import reduce
 mul = product = lambda s: reduce(operator.mul, s)
