@@ -196,6 +196,14 @@ class Distribution:
         return self._nest(lambda e: Distribution((fn(e), 1)))
     group = group_by = map
 
+    def starmap(self, fn):
+        """
+        Behaves like `distribution.map`, but the given function `fn` is called
+        as `fn(*e)` instead of `fn(e)`.
+        """
+        #                                            v
+        return self._nest(lambda e: Distribution((fn(*e), 1)))
+
     def opposite(self):
         """
         Returns a distribution with the opposite odds for each item, already
@@ -390,9 +398,7 @@ if __name__ == '__main__':
         opened_door = {1: random.choice([2, 3]), 2: 3, 3: 2}[car_position]
         return (car_position, opened_door)
 
-    def best_strategy(state):
-        car_position, opened_door = state
-
+    def best_strategy(car_position, opened_door):
         # Seeing the empty door, the participant may choose to switch.
         switched = {2: 3, 3: 2}[opened_door]
 
@@ -405,7 +411,7 @@ if __name__ == '__main__':
         # But if you realise this, the result becomes trivial.
 
     # Compute the total likelihood of each strategy winning.
-    car_positions.map(open_door).map(best_strategy).plot()
+    car_positions.map(open_door).starmap(best_strategy).plot()
     #           Switching wins [===========================             ]  66.67%
     #             Staying wins [=============                           ]  33.33%
 
@@ -419,7 +425,7 @@ if __name__ == '__main__':
     # not be the car door.
     game = join(car_positions, opened_doors).filter(not_equals)
     # What are the strategy likelihoods for winning then?
-    game.map(best_strategy).plot()
+    game.starmap(best_strategy).plot()
     #            Switching wins [====================                    ]  50.00%
     #              Staying wins [====================                    ]  50.00%
 
@@ -667,13 +673,12 @@ if __name__ == '__main__':
     # ('Tails', 'Tuesday', 'Heads')  16.67% [=======                                 ]
     # ('Tails', 'Tuesday', 'Tails')  16.67% [=======                                 ]
 
-    def verify_guess(state):
-        actual, day, guess = state
+    def verify_guess(actual, day, guess):
         if actual == guess:
             return 'Correct ' + guess
         else:
             return 'Incorrect'
-    guesses.map(verify_guess).plot()
+    guesses.starmap(verify_guess).plot()
     #                Incorrect  50.00% [====================                    ]
     #            Correct Tails  33.33% [=============                           ]
     #            Correct Heads  16.67% [=======                                 ]
