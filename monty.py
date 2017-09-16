@@ -178,6 +178,10 @@ class Distribution:
     def utility(self, utility_function=lambda v: v):
         return sum(p * utility_function(v) for v, p in self)
 
+    @property
+    def expected_value(self):
+        return self.utility()
+
     def __repr__(self):
         return repr(self.pairs)
 
@@ -348,6 +352,8 @@ if __name__ == '__main__':
     # A car is put behind one of three doors.
     car_positions = Uniform(1, 2, 3)
 
+    # The participant starts selecting door number 1.
+
     def open_door(car_position):
         # The host opens one of the other doors that does not contain the car.
         opened_door = {1: random.choice([2, 3]), 2: 3, 3: 2}[car_position]
@@ -356,7 +362,6 @@ if __name__ == '__main__':
     def best_strategy(state):
         car_position, opened_door = state
 
-        # The participant starts selecting door number 1.
         # Seeing the empty door, the participant may choose to switch.
         switched = {2: 3, 3: 2}[opened_door]
 
@@ -417,6 +422,7 @@ if __name__ == '__main__':
     #                    Tails  50.00% [====================                    ]
     #                    Heads  50.00% [====================                    ]
 
+
     # Mixing solutions
     # ----------------
 
@@ -447,7 +453,7 @@ if __name__ == '__main__':
     print(filtered, filtered.total)
     # (('water', 247.5), ('orange', 6.0), ('sugar', 2.0)) 255.5
 
-    # Mix 1 units of juice and sugar water at 50/50, resulting in 2.5% sugar.
+    # Mix 1 unit of juice and sugar water at 50/50, resulting in 2.5% sugar.
     Volume({juice: 1, sugar_water: 1}).plot()
     #                    water  60.00% [========================                ]
     #                   orange  37.50% [===============                         ]
@@ -456,6 +462,7 @@ if __name__ == '__main__':
 
     # Is the coin biased?
     # -------------------
+    # TODO
 
 
     # Makeshift dice
@@ -529,23 +536,31 @@ if __name__ == '__main__':
     #                     True  50.00% [====================                    ]
 
 
-    # Non transitive dice
-    # -------------------
+    # Nontransitive dice
+    # ------------------
+    # Three 6-sided dices with modified numbers.
     dice_a = Uniform(2, 2, 4, 4, 9, 9)
     dice_b = Uniform(1, 1, 6, 6, 8, 8)
     dice_c = Uniform(3, 3, 5, 5, 7, 7)
 
-    join(dice_a, dice_b).map(gt).map(['A wins', 'B wins']).plot()
-    #                   B wins  55.56% [======================                  ]
-    #                   A wins  44.44% [==================                      ]
+    # Expected value is the same (within float tolerance).
+    import math
+    assert math.isclose(dice_a.expected_value, dice_b.expected_value)
+    assert math.isclose(dice_b.expected_value, dice_c.expected_value)
 
-    join(dice_b, dice_c).map(gt).map(['B wins', 'C wins']).plot()
-    #                   C wins  55.56% [======================                  ]
+    # But they behave like rock paper scissors:
+
+    join(dice_a, dice_b).map(lt).map(['A wins', 'B wins']).plot()
+    #                   A wins  55.56% [======================                  ]
     #                   B wins  44.44% [==================                      ]
 
-    join(dice_c, dice_a).map(gt).map(['C wins', 'A wins']).plot()
-    #                   A wins  55.56% [======================                  ]
+    join(dice_b, dice_c).map(lt).map(['B wins', 'C wins']).plot()
+    #                   B wins  55.56% [======================                  ]
     #                   C wins  44.44% [==================                      ]
+
+    join(dice_c, dice_a).map(lt).map(['C wins', 'A wins']).plot()
+    #                   C wins  55.56% [======================                  ]
+    #                   A wins  44.44% [==================                      ]
 
 
     # Sleeping beauty
