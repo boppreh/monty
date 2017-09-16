@@ -1,7 +1,7 @@
 import sys
 import random
 import itertools
-from collections import Counter
+from collections import Counter, defaultdict
 
 REST = {}
 
@@ -31,7 +31,9 @@ class Distribution:
             (0.01, 'Sideways'),
         )
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, force_flatten=True, **kwargs):
+        self.force_flatten = force_flatten
+
         if kwargs:
             # Distribution(a=0.5, b=0.1, c=REST)
             assert not args
@@ -46,7 +48,7 @@ class Distribution:
             if probability is REST:
                 probability = 1 - self.total
 
-            if isinstance(value, Distribution):
+            if force_flatten and isinstance(value, Distribution):
                 for sub_value, sub_probability in value.normalized():
                     pairs_list.append((sub_value, probability*sub_probability))
                     self.total += probability*sub_probability
@@ -56,8 +58,25 @@ class Distribution:
 
         self.pairs = tuple(pairs_list)
 
+        try:
+            self.dict = dict(self.pairs).__getitem__
+            self.hashable = True
+        except TypeError:
+            self.dict = None
+            self.hashable = False
+
+    def __getitem__(self, target):
+        for value, probability in self:
+            if value == target:
+                return probability
+        raise KeyError(target)
+
     def normalized(self):
-        return Distribution(*((v, p/self.total) for v, p in self))
+        """
+        Returns a new distribution with the probabilities normalized so that
+        their total sums to 1.
+        """
+        return Distribution(*((v, p/self.total) for v, p in self), force_flatten=self.force_flatten)
 
     def generate(self, n=-1):
         """
@@ -83,18 +102,22 @@ class Distribution:
             yield next(value for value, r in running if r >= choice)
             n -= 1
 
-    def plot(self, title=None):
+    def plot(self, title=None, sort=True):
         """
         Prints a horizontal bar plot of values in the given distribution.
         """
         if title is not None:
             print(title)
 
-        counter = Counter()
-        for v, p in self.normalized():
-            counter[str(v)] += p
+        if sort:
+            counter = Counter()
+            for v, p in self.normalized():
+                counter[str(v)] += p
+            pairs = counter.most_common()
+        else:
+            pairs = ((str(v), p) for v, p in self)
 
-        for str_value, prob in counter.most_common():
+        for str_value, prob in pairs:
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
             # 29 is used to make the whole line be 80 characters, ensuring
             # every plot is aligned with every other plot.
@@ -114,7 +137,7 @@ class Distribution:
         examples = self.generate()
         counter = Counter(fn(next(examples) for i in range(n)))
         scale = 1/sum(counter.values()) # Note that `fn` may change the number of examples.
-        return Distribution(*((value, count*scale) for value, count in counter.most_common()))
+        return Distribution(*((value, count*scale) for value, count in counter.most_common()), force_flatten=self.force_flatten)
 
     def _nest(self, fn):
         """
@@ -123,12 +146,18 @@ class Distribution:
         list of (probability, value) pairs. Returns the flattened
         aggregated distribution.
         """
-        if isinstance(fn, dict): fn = fn.__getitem__
-        counter = Counter()
-        for value, probability in self:
-            for sub_value, sub_probability in fn(value):
-                counter[sub_value] += sub_probability * probability
-        return Distribution(*counter.most_common())
+        if self.hashable:
+            aggregated = defaultdict(float)
+            for value, probability in self:
+                for sub_value, sub_probability in fn(value):
+                    aggregated[sub_value] += sub_probability * probability
+            return Distribution(*aggregated.items(), force_flatten=self.force_flatten)
+        else:
+            new_pairs = []
+            for value, probability in self:
+                for sub_value, sub_probability in fn(value):
+                    new_pairs.append((sub_value, sub_probability * probability))
+            return Distribution(*new_pairs, force_flatten=self.force_flatten)
 
     def filter(self, fn=None, **kwargs):
         """
@@ -146,11 +175,13 @@ class Distribution:
             fn = lambda c: c
         elif isinstance(fn, dict):
             fn = fn.__getitem__
+        elif isinstance(fn, Distribution):
+            fn = fn.__getitem__
         elif not callable(fn):
             fn = fn.__contains__
         def helper(e):
             result = fn(e)
-            return [(e, float(result))] if result else []
+            return [(e, float(result or 0))]
         return self._nest(helper)
     update = filter
 
@@ -172,7 +203,7 @@ class Distribution:
         """
         opposite_pairs = [(v, 1-p) for p, v in self]
         scale = 1/sum(p for v, p in opposite_pairs)
-        return Distribution(*((v, scale*p) for v, p in opposite_pairs))
+        return Distribution(*((v, scale*p) for v, p in opposite_pairs), force_flatten=self.force_flatten)
     __neg__ = opposite
 
     def utility(self, utility_function=lambda v: v):
@@ -204,23 +235,23 @@ class Uniform(Distribution):
             (0.333, 'Sideways'),
         )
     """
-    def __init__(self, *items):
-        super().__init__(*((item, 1/len(items)) for item in items))
+    def __init__(self, *items, **kwargs):
+        super().__init__(*((item, 1/len(items)) for item in items), **kwargs)
 
 class Fixed(Distribution):
-    def __init__(self, item):
-        super().__init__((item, 1))
+    def __init__(self, item, **kwargs):
+        super().__init__((item, 1), **kwargs)
 class Range(Uniform):
-    def __init__(self, a, b=None):
-        super().__init__(*range(a, b))
+    def __init__(self, a, b=None, **kwargs):
+        super().__init__(*range(a, b), **kwargs)
 class Count(Uniform):
-    def __init__(self, a, b=None):
+    def __init__(self, a, b=None, **kwargs):
         if b is None:
             a, b = 1, a
-        super().__init__(*range(a, b+1))
+        super().__init__(*range(a, b+1), **kwargs)
 class Permutations(Uniform):
-    def __init__(self, *items):
-        super().__init__(*itertools.permutations(items))
+    def __init__(self, *items, **kwargs):
+        super().__init__(*itertools.permutations(items), **kwargs)
 
 # Shorthand.
 D = Distribution
@@ -460,9 +491,50 @@ if __name__ == '__main__':
     #                    sugar   2.50% [=                                       ]
 
 
-    # Is the coin biased?
+    # Detecting coin bias
     # -------------------
-    # TODO
+    # We got a coin from a factory of biased coins. The factory makes 11 different
+    # coins, each type flipping heads anywhere from 0% to 100% of the time.
+    all_coin_types = [Distribution(Heads=i/10, Tails=REST) for i in range(11)]
+    # We get one of these coins, but don't know which type.
+    # (`force_flatten=False` is required so `Uniform` doesn't merge all Heads/Tails
+    # probabilities. We could also just not use `Distribution` for the coin types.)
+    coins = Uniform(*all_coin_types, force_flatten=False)
+    coins.plot()
+    # (('Heads', 0.0), ('Tails', 1.0))   9.09% [====                                    ]
+    # (('Heads', 0.1), ('Tails', 0.9))   9.09% [====                                    ]
+    # (('Heads', 0.2), ('Tails', 0.8))   9.09% [====                                    ]
+    # (('Heads', 0.3), ('Tails', 0.7))   9.09% [====                                    ]
+    # (('Heads', 0.4), ('Tails', 0.6))   9.09% [====                                    ]
+    # (('Heads', 0.5), ('Tails', 0.5))   9.09% [====                                    ]
+    # (('Heads', 0.6), ('Tails', 0.4))   9.09% [====                                    ]
+    # (('Heads', 0.7), ('Tails', 0.3))   9.09% [====                                    ]
+    # (('Heads', 0.8), ('Tails', 0.1))   9.09% [====                                    ]
+    # (('Heads', 0.9), ('Tails', 0.0))   9.09% [====                                    ]
+    # (('Heads', 1.0), ('Tails', 0.0))   9.09% [====                                    ]
+
+    # We don't know yet, but our coin is the 70%-Heads coin. Toss it 10 times.
+    tosses = ['Heads'] * 7 + ['Tails'] * 3
+    random.shuffle(tosses)
+
+    # Update the chance of each coin type according to their predicted probability
+    # for that coin toss.
+    for toss in tosses:
+        # Must be normalized to avoid losing precision.
+        coins = coins.filter(lambda c: c[toss]).normalized()
+
+    coins.plot(sort=False)
+    # (('Heads', 0.0), ('Tails', 1.0))   0.00% [                                        ]
+    # (('Heads', 0.1), ('Tails', 0.9))   0.00% [                                        ]
+    # (('Heads', 0.2), ('Tails', 0.8))   0.09% [                                        ]
+    # (('Heads', 0.3), ('Tails', 0.7))   0.99% [                                        ]
+    # (('Heads', 0.4), ('Tails', 0.6))   4.67% [==                                      ]
+    # (('Heads', 0.5), ('Tails', 0.5))  12.88% [=====                                   ]
+    # (('Heads', 0.6), ('Tails', 0.4))  23.63% [=========                               ]
+    # (('Heads', 0.7), ('Tails', 0.3))  29.32% [============                            ]
+    # (('Heads', 0.8), ('Tails', 0.2))  22.12% [=========                               ]
+    # (('Heads', 0.9), ('Tails', 0.1))   6.31% [===                                     ]
+    # (('Heads', 1.0), ('Tails', 0.0))   0.00% [                                        ]
 
 
     # Makeshift dice
@@ -489,22 +561,22 @@ if __name__ == '__main__':
     #                       18   5.00% [==                                      ]
     #                       19   5.00% [==                                      ]
     #                       20   5.00% [==                                      ]
-    (5 * d4).map(sum).plot()
+    (5 * d4).map(sum).plot(sort=False)
+    #                        5   0.10% [                                        ]
+    #                        6   0.49% [                                        ]
+    #                        7   1.46% [=                                       ]
+    #                        8   3.42% [=                                       ]
+    #                        9   6.35% [===                                     ]
+    #                       10   9.86% [====                                    ]
+    #                       11  13.18% [=====                                   ]
     #                       12  15.14% [======                                  ]
     #                       13  15.14% [======                                  ]
-    #                       11  13.18% [=====                                   ]
     #                       14  13.18% [=====                                   ]
-    #                       10   9.86% [====                                    ]
     #                       15   9.86% [====                                    ]
-    #                        9   6.35% [===                                     ]
     #                       16   6.35% [===                                     ]
-    #                        8   3.42% [=                                       ]
     #                       17   3.42% [=                                       ]
-    #                        7   1.46% [=                                       ]
     #                       18   1.46% [=                                       ]
-    #                        6   0.49% [                                        ]
     #                       19   0.49% [                                        ]
-    #                        5   0.10% [                                        ]
     #                       20   0.10% [                                        ]
     # Nope.
 
