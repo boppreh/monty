@@ -102,7 +102,7 @@ class Distribution:
             yield next(value for value, r in running if r >= choice)
             n -= 1
 
-    def plot(self, title=None, sort=True, include_zero=True):
+    def plot(self, title=None, sort=True, filter=True):
         """
         Prints a horizontal bar plot of values in the given distribution.
         """
@@ -112,11 +112,11 @@ class Distribution:
         if sort:
             counter = Counter()
             for v, p in self.normalized():
-                if include_zero or p != 0:
+                if filter or p != 0:
                     counter[str(v)] += p
             pairs = counter.most_common()
         else:
-            pairs = ((str(v), p) for v, p in self if include_zero or p != 0)
+            pairs = ((str(v), p) for v, p in self.normalized() if filter or p != 0)
 
         for str_value, prob in pairs:
             bar = '['+(round(prob * 40) * '=').ljust(40)+']'
@@ -173,7 +173,7 @@ class Distribution:
             assert fn is None
             fn = kwargs.__getitem__
         elif fn is None:
-            fn = lambda c: c
+            fn = lambda c: bool(c)
         elif isinstance(fn, dict):
             fn = fn.__getitem__
         elif isinstance(fn, Distribution):
@@ -322,24 +322,24 @@ second = lambda s: s[1]
 third = lambda s: s[2]
 last = lambda s: s[-1]
 
-class Volume(Distribution):
+class Solution(Distribution):
     """
     Uses the Distribution algorithms to model concentration of solutions.
     "Probabilities" are treated as volumes and therefore not normalized.
     Also overrides arithmetic operators to behave like mixing liquids. Example:
 
-        juice = Volume(water=200, orange=600)
-        sugar_water = Volume(water=95, sugar=5)
+        juice = Solution(water=200, orange=600)
+        sugar_water = Solution(water=95, sugar=5)
         juice + sugar_water/2 # total volume: (200+600 + (95+5)/2) = 850
-        Volume({juice: 1, sugar_water: 1}) # Mix 1-1, total volume: 1.0, 2.5% sugar
+        Solution({juice: 1, sugar_water: 1}) # Mix 1-1, total volume: 1.0, 2.5% sugar
     """
     def __add__(self, other):
         counter = Counter()
         for v, p in self: counter[v] += p
         for v, p in other: counter[v] += p
-        return Volume(*counter.most_common())
+        return Solution(*counter.most_common())
     def __mul__(self, n):
-        return Volume(*((v, p*n) for v, p in self))
+        return Solution(*((v, p*n) for v, p in self))
     __rmul__ = __mul__
     def __div__(self, n):
         return self * (1/n)
@@ -485,12 +485,12 @@ if __name__ == '__main__':
     # concentrations in solutions.
 
     # 200 units of water and 600 units of pure orange.
-    juice = Volume(water=200, orange=600).plot()
+    juice = Solution(water=200, orange=600).plot()
     #                   orange  75.00% [==============================          ]
     #                    water  25.00% [==========                              ]
 
     # 100 units of sugar water at 5%
-    sugar_water = Volume(water=95, sugar=5).plot()
+    sugar_water = Solution(water=95, sugar=5).plot()
     #                    water  95.00% [======================================  ]
     #                    sugar   5.00% [==                                      ]
 
@@ -509,7 +509,7 @@ if __name__ == '__main__':
     # (('water', 247.5), ('orange', 6.0), ('sugar', 2.0)) 255.5
 
     # Mix 1 unit of juice and sugar water at 50/50, resulting in 2.5% sugar.
-    Volume({juice: 1, sugar_water: 1}).plot()
+    Solution({juice: 1, sugar_water: 1}).plot()
     #                    water  60.00% [========================                ]
     #                   orange  37.50% [===============                         ]
     #                    sugar   2.50% [=                                       ]
