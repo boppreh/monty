@@ -163,7 +163,7 @@ Distributions are immutable objects, but they support creating modified copies. 
 - List or tuple: behaves like `lambda v: v in list`.
 - None: behaves like `lambda v: bool(v)`.
 
-Also, the Distribution class implements `starmap` and `starfilter`, which invoke `fn(*value)` instead of `fn(value)`. This is useful when your value is a tuple, as in `dice * 4`. Example where this is useful:
+Also, the Distribution class implements `starmap` and `starfilter`, which invoke `fn(*value)` instead of `fn(value)`. This is useful when your value is a tuple representing a "state". For example:
 
 ```python
 join(coin, dice).starmap(lambda toss, roll: toss == 'Heads' and roll > 4).plot()
@@ -394,7 +394,7 @@ It's common for values to be tuples of numbers. To add two numbers one would use
 | `add` | `v[0] + v[1] + v[2] + ...` | same as Python's builtin `sum` |
 | `sub` | `v[0] - v[1]` | |
 | `difference` | `abs(v[0] - v[1])` | |
-| `mul` |`v[0] * v[1] * v[2] * ...` | `mul`, `product` |
+| `mul` |`v[0] * v[1] * v[2] * ...` | `product` |
 | `first` | `v[0]` | |
 | `second` | `v[1]` | |
 | `third` | `v[2]` | |
