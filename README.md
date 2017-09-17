@@ -5,6 +5,8 @@ monty
 
 The workhorse of this library is the `Distribution` class, which internally stores the discrete distribution as a list of pairs `(value, odds)`. The `Distribution` class has functions for changing the values, updating the odds, generating random values, and plotting. A number of shortcuts and helpers is also included.
 
+**Note on terminology**: this library uses the term *odds* to mean any non-negative value that somehow associates a value with a likelihood. Odds are not normalized like probabilities, so you can have `Distribution(Tails=25, Heads=50)`, where the numbers `25` and `50` are used only for relative comparison (*heads* appears twice as more than *tails*, that is, 66% vs 33%). Those numbers are converted to probabilities when plotting, but under the hood they are kept as-is. I'm not sure if *odds* is the correct term, but it's an important distinction.
+
 ## Constructing
 
 There are several ways to construct a distribution. The following three examples are all equivalent:

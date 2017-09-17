@@ -9,7 +9,7 @@ def join(*ds):
     """
     Joins many (potientially nested) distributions into a single flat
     distribution containing all possible combinations, with associated
-    probability.
+    odds.
     """
     result = []
     for pairs in itertools.product(*ds):
@@ -44,17 +44,17 @@ class Distribution:
 
         pairs_list = []
         self.total = 0
-        for value, probability in args:
-            if probability is REST:
-                probability = 1 - self.total
+        for value, odds in args:
+            if odds is REST:
+                odds = 1 - self.total
 
             if force_flatten and isinstance(value, Distribution):
-                for sub_value, sub_probability in value.normalized():
-                    pairs_list.append((sub_value, probability*sub_probability))
-                    self.total += probability*sub_probability
+                for sub_value, sub_odds in value.normalized():
+                    pairs_list.append((sub_value, odds*sub_odds))
+                    self.total += odds*sub_odds
             else:
-                pairs_list.append((value, probability))
-                self.total += probability
+                pairs_list.append((value, odds))
+                self.total += odds
 
         self.pairs = tuple(pairs_list)
 
@@ -66,9 +66,9 @@ class Distribution:
             self.hashable = False
 
     def __getitem__(self, target):
-        for value, probability in self:
+        for value, odds in self:
             if value == target:
-                return probability
+                return odds
         raise KeyError(target)
 
     def normalized(self):
@@ -86,8 +86,8 @@ class Distribution:
         """
         total = 0
         running = []
-        for value, probability in self.normalized():
-            total += probability
+        for value, odds in self.normalized():
+            total += odds
             running.append((value, total))
 
         if total < 1:
@@ -95,7 +95,7 @@ class Distribution:
                 # Compensate for floating point innacuracies.
                 running[-1] = (running[-1][1], 1)
             else:
-                raise ValueError('Incomplete distribution. Total probability is just {:%}.'.format(total))
+                raise ValueError('Incomplete distribution. Total odds is just {:%}.'.format(total))
 
         while n != 0:
             choice = random.random()
@@ -118,11 +118,11 @@ class Distribution:
         else:
             pairs = ((str(v), p) for v, p in self.normalized() if filter or p != 0)
 
-        for str_value, prob in pairs:
-            bar = '['+(round(prob * 40) * '=').ljust(40)+']'
+        for str_value, probability in pairs:
+            bar = '['+(round(probability * 40) * '=').ljust(40)+']'
             # 29 is used to make the whole line be 80 characters, ensuring
             # every plot is aligned with every other plot.
-            print('{:>29} {:>7.2%} {}'.format(str_value, prob, bar))
+            print('{:>29} {:>7.2%} {}'.format(str_value, probability, bar))
         print('')
         return self
 
@@ -144,26 +144,26 @@ class Distribution:
         """
         Replaces every value with a sub-distribution given by `fn(value)`.
         `fn` may return a Distribution (or Uniform) instance, or simply a
-        list of (probability, value) pairs. Returns the flattened
+        list of (value, odds) pairs. Returns the flattened
         aggregated distribution.
         """
         if self.hashable:
             aggregated = defaultdict(float)
-            for value, probability in self:
-                for sub_value, sub_probability in fn(value):
-                    aggregated[sub_value] += sub_probability * probability
+            for value, odds in self:
+                for sub_value, sub_odds in fn(value):
+                    aggregated[sub_value] += sub_odds * odds
             return Distribution(*aggregated.items(), force_flatten=self.force_flatten)
         else:
             new_pairs = []
-            for value, probability in self:
-                for sub_value, sub_probability in fn(value):
-                    new_pairs.append((sub_value, sub_probability * probability))
+            for value, odds in self:
+                for sub_value, sub_odds in fn(value):
+                    new_pairs.append((sub_value, sub_odds * odds))
             return Distribution(*new_pairs, force_flatten=self.force_flatten)
 
     def filter(self, fn=None, **kwargs):
         """
         Returns a distribution made of only the items that passed the given
-        filter. If `fn` returns a number, this is taken as the new probability
+        filter. If `fn` returns a number, this is taken as the new odds
         of that value, and the total distribution is updated as such.
 
         `fn` can also be a dictionary mapping values to results, or a list,
