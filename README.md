@@ -26,7 +26,8 @@ The workhorse of this library is the `Distribution` class, which internally stor
 
 There are several ways to construct a distribution. The following three examples are all equivalent:
 
-- Explicit pairs: `Distribution(('Heads', 0.5), ('Tails', 0.5))`.
+- Explicit pairs (list): `Distribution([('Heads', 0.5), ('Tails', 0.5)])`.
+- Explicit pairs (\*args): `Distribution(('Heads', 0.5), ('Tails', 0.5))`.
 - Dictionary: `Distribution({'Heads': 0.5, 'Tails': 0.5})`.
 - Keyword arguments: `Distribution(Heads=0.5, Tails=0.5)`.
 
@@ -61,6 +62,27 @@ coin_value.plot()
 #                          100  16.50% [=======                                 ]
 #                  Counterfeit   1.00% [                                        ]
 ```
+
+**Cheatsheet**
+
+| Input | Resulting distribution |
+| ---- | --- |
+| `Distribution(a=0.5, b=0.1, c=0.4)` | `(('a', 0.5), ('b', 0.1), ('c', 0.4))` |
+| `Distribution(a=0.5, b=0.1, c=REST)` | `(('a', 0.5), ('b', 0.1), ('c', 0.4))` |
+| `Distribution({'a': 0.5, 'b': 0.1, 'c': 0.4})` | `(('a', 0.5), ('b', 0.1), ('c', 0.4))` |
+| `Distribution([('a', .5), ('b', .1), ('c', .4)])` | `(('a', 0.5), ('b', 0.1), ('c', 0.4))` |
+| `Distribution(('a', .5), ('b', .1), ('c', .4))` | `(('a', 0.5), ('b', 0.1), ('c', 0.4))` |
+| `Uniform('a', 'b', 'c', 'd')` | `(('a', 0.25), ('b', 0.25), ('c', 0.25), ('d', 0.25))` |
+| `Uniform(['a', 'b', 'c', 'd'])` | `(('a', 0.25), ('b', 0.25), ('c', 0.25), ('d', 0.25))` |
+| `Uniform('abcd')` | `(('a', 0.25), ('b', 0.25), ('c', 0.25), ('d', 0.25))` |
+| `Fixed('Highlander')` | `(('Highlander', 1),)` |
+| `Range(4)` | `((0, 0.25), (1, 0.25), (2, 0.25), (3, 0.25))` |
+| `Range(2, 4)` | `((2, 0.5), (3, 0.5))` |
+| `Count(4)` | `((1, 0.25), (2, 0.25), (3, 0.25), (4, 0.25))` |
+| `Count(2, 5)` | `((2, 0.25), (3, 0.25), (4, 0.25), (5, 0.25))` |
+| `Permutations('A', 'B')` | `((('A', 'B'), 0.5), (('B', 'A'), 0.5))` |
+| `Permutations(['A', 'B'])` | `((('A', 'B'), 0.5), (('B', 'A'), 0.5))` |
+| `Distribution((Uniform('ab'), 0.6), (None, REST))` | `(('a', 0.3), ('b', 0.3), (None, 0.4))` |
 
 <a name="joining"/>
 
@@ -360,24 +382,23 @@ F = Fixed
 
 It's common for values to be tuples of numbers. To add two numbers one would use `distribution.map(lambda v: v[0] + v[1])`, or with starmap: `distribution.starmap(lambda a, b: a + b)`. To simplify operations like these, one can use one of the following pre-made functions, as in `distribution.map(add)`:
 
-- Boolean operators:
-    - **lt**: `v[0] < v[1]`
-    - **le**: `v[0] <= v[1]`
-    - **eq** (also `equal`, `equals`): `v[0] == v[1]`
-    - **ne** (also `not_equal`, `not_equals`): `v[0] != v[1]`
-    - **gt**: `v[0] > v[1]`
-    - **ge**: `v[0] >= v[1]`
-    - **contains**: `v[0] in v[1]`
-- Mathematical functions:
-    - **add** (same as Python's builtin `sum`): `v[0] + v[1] + v[2] + ...`
-    - **sub**: `v[0] - v[1]`
-    - **difference**: `abs(v[0] - v[1])`
-    - **mul** (also `product`): `v[0] * v[1] * v[2] * ...`
-- List getters:
-    - **first**: `v[0]`
-    - **second**: `v[1]`
-    - **third**: `v[2]`
-    - **last**: `v[-1]`
+| Name          | Behavior      | Aliases |
+| ------------- | ------------- | ------- |
+| `lt` | `v[0] < v[1]` | |
+| `le` | `v[0] <= v[1]` | |
+| `eq` | `v[0] == v[1]` | `equal`, `equals` |
+| `ne` | `v[0] != v[1]` | `not_equal`, `not_equals` |
+| `gt` | `v[0] > v[1]` | |
+| `ge` | `v[0] >= v[1]` | |
+| `contains` | `v[0] in v[1]` | |
+| `add` | `v[0] + v[1] + v[2] + ...` | same as Python's builtin `sum` |
+| `sub` | `v[0] - v[1]` | |
+| `difference` | `abs(v[0] - v[1])` | |
+| `mul` |`v[0] * v[1] * v[2] * ...` | `mul`, `product` |
+| `first` | `v[0]` | |
+| `second` | `v[1]` | |
+| `third` | `v[2]` | |
+| `last` | `v[-1]` | |
 
 
 <a name="examples"/>
