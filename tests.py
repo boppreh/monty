@@ -288,5 +288,51 @@ class TestFilter(unittest.TestCase):
         d = Distribution(([], 0.5), ([1, 2, 3], 0.5), force_merge=False)
         self.assertEqual(d.filter(len), (([], 0.0), ([1, 2, 3], 1.5)))
 
+class TestHelpers(unittest.TestCase):
+    def test_uniform_empty(self):
+        self.assertEqual(Uniform(), ())
+
+    def test_uniform_one(self):
+        self.assertEqual(Uniform(1), ((1, 1),))
+
+    def test_uniform_many(self):
+        self.assertEqual(Uniform(1, 2), ((1, 0.5), (2, 0.5)))
+
+    def test_fixed(self):
+        self.assertEqual(Fixed(1), ((1, 1),))
+
+    def test_range_implicit(self):
+        self.assertEqual(Range(4), ((0, 0.25), (1, 0.25), (2, 0.25), (3, 0.25)))
+
+    def test_range_explicit(self):
+        self.assertEqual(Range(2, 4), ((2, 0.5), (3, 0.5)))
+
+    def test_count_implicit(self):
+        self.assertEqual(Count(4), ((1, 0.25), (2, 0.25), (3, 0.25), (4, 0.25)))
+
+    def test_count_explicit(self):
+        self.assertEqual(Count(3, 4), ((3, 0.5), (4, 0.5)))
+
+class TestSolution(unittest.TestCase):
+    def setUp(self):
+        self.orange = Solution(Orange=1)
+        self.water = Solution(Water=1)
+        self.juice = Solution((self.water, 300), (self.orange, 700))
+
+    def test_empty(self):
+        self.assertEqual(Solution(), ())
+
+    def test_volume(self):
+        self.assertEqual(self.juice, (('Water', 300), ('Orange', 700)))
+
+    def test_add(self):
+        self.assertEqual(self.juice+self.juice, (('Water', 600), ('Orange', 1400)))
+
+    def test_mul(self):
+        self.assertEqual(self.juice*2, (('Water', 600), ('Orange', 1400)))
+
+    def test_div(self):
+        self.assertEqual(self.juice/2, (('Water', 150), ('Orange', 350)))
+
 if __name__  == '__main__':
     unittest.main()

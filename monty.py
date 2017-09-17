@@ -287,8 +287,8 @@ class Range(Uniform):
     Distribution of integers from the given start value (or 0) up to, but not
     including, the end value.
     """
-    def __init__(self, a, b=None, **kwargs):
-        super().__init__(*range(a, b), **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*range(*args), **kwargs)
 class Count(Uniform):
     """
     Distribution of integers from the given start value (or 1) up to, and
@@ -371,10 +371,7 @@ class Solution(Distribution):
         Solution({juice: 1, sugar_water: 1}) # Mix 1-1, total volume: 1.0, 2.5% sugar
     """
     def __add__(self, other):
-        counter = Counter()
-        for v, p in self: counter[v] += p
-        for v, p in other: counter[v] += p
-        return Solution(*counter.most_common())
+        return Solution((self, self.total), (other, other.total))
     def __mul__(self, n):
         return Solution(*((v, p*n) for v, p in self))
     __rmul__ = __mul__
