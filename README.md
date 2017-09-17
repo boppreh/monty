@@ -113,7 +113,7 @@ It's common for values to be tuples of numbers. To add two numbers one would use
     - **gt**: `v[0] > v[1]`
     - **ge**: `v[0] >= v[1]`
     - **contains**: `v[0] in v[1]`
--Mathematical functions:
+- Mathematical functions:
     - **add** (same as Python's builtin `sum`): `v[0] + v[1] + v[2] + ...`
     - **sub**: `v[0] - v[1]`
     - **difference**: `abs(v[0] - v[1])`
