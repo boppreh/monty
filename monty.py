@@ -191,7 +191,7 @@ class Distribution:
             assert fn is None
             return kwargs.__getitem__
         elif fn is None:
-            return lambda c: bool(c)
+            return bool
         elif isinstance(fn, (list, tuple)):
             return fn.__contains__
         elif hasattr(fn, '__getitem__'):

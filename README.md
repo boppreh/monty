@@ -115,7 +115,7 @@ dict(coin)
 # {'Heads': 0.5, 'Tails': 0.5}
 ```
 
-Access single values by using `distribution[value]`, `distribution.expected_value` (for numeric values), `distribution.utility(fn)`, together with `distribution.mode` and `distribution.mean` (for numeric values).
+Access single values by using `distribution[value]`, `distribution.expected_value` (weighted average of numeric values), `distribution.utility(fn)`, `distribution.mode` (the most common value).
 
 Finally, you can also plot to the terminal: `distribution.plot(sort=True, filter=True)`.
 
@@ -133,13 +133,39 @@ card_suits.plot()
 
 Distributions are immutable objects, but they support creating modified copies. Remember the distribution is modeled as a list of pairs `(value, odds)`. There are two main functions to update a distribution: `distribution.map` updates each `value`; and `distribution.filter` updates each `odds`.
 
+**Note on flexibility**: both `map` and `filter` usually take a function, but you can also pass a dictionary, list/tuple, keyword arguments, or even `None`, as follows:
+
+- Function: invoked for each value, expects a new value (for `map`) or odds multiplier (for `filter`).
+- Dictionary: behaves like `lambda v: dictionary[v]`.
+- Keyword args: behaves like `lambda v: kwargs[v]`.
+- List or tuple: behaves like `lambda v: v in list`.
+- None: behaves like `lambda v: bool(v)`.
+
+Also, the Distribution class implements `starmap` and `starfilter`, which invoke `fn(*value)` instead of `fn(value)`. This is useful when your value is a tuple, as in `dice * 4`. Example where this is useful:
+
+```python
+join(coin, dice).starmap(lambda toss, roll: toss == 'Heads' and roll > 4).plot()
+#                        False  83.33% [=================================       ]
+#                         True  16.67% [=======                                 ]
+```
+
 <a name="map"/>
 
 ### Map
 
-`distribution.map` takes as parameter a function, or a dictionary, or keyword arguments, and returns a new distribution `(fn(value), odds)`. If multiple values mapped to the same new value, their odds will add up:
+`distribution.map` applies a function to each value and returns a new distribution of pairs `(fn(value), odds)`. Duplicated values are merged, and sub-distributions flattened, with the same rules as usual construction.
+
+Example:
 
 ```python
+dice.map(lambda v: v+1).plot()
+#                            2  16.67% [=======                                 ]
+#                            3  16.67% [=======                                 ]
+#                            4  16.67% [=======                                 ]
+#                            5  16.67% [=======                                 ]
+#                            6  16.67% [=======                                 ]
+#                            7  16.67% [=======                                 ]
+
 dice.map(lambda v: v > 4).plot()
 #                        False  66.67% [===========================             ]
 #                         True  33.33% [=============                           ]
@@ -154,13 +180,7 @@ dice.map({1: 0, 2: 0, 3: 1, 4: 1, 5: 2, 6: 2}).plot()
 #                            2  33.33% [=============                           ]
 ```
 
-Because of this behavior, `map` is aliased to `group` and `group_by`.
-
-Often your `value` will be a tuple. For example, in `dice * 4` the values are tuples of four dice rolls. To help mapping in these situations, the library includes a number of comparison operators (`lt`, `le`, `eq`, `ne`, `gt`, `ge`), and basic arithmetic operators (`add`, `sub`, `difference` (absolute), `product`). For example, the sum of four dice rolls: `(dice*4).map(add)`.
-
-Also, `distribution.starmap` invokes `fn(*value)` instead of `fn(value)`, making it easier to access each individual item. For example, `join(coin, dice).starmap(lambda toss, roll: toss == 'Heads' and roll > 4)`.
-
-**Note**: your mapping function may return another Distribution object, which is then integrated into the parent distribution. This allows you to split a value, or remove it completely. This is a feature of the construction, not of the mapping.
+Because of this grouping behavior, `map` is aliased to `group` and `group_by`.
 
 <a name="filter"/>
 
@@ -220,7 +240,7 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 
 - No argument: equivalent to `filter(lambda v: bool(v))`, filters away "falsy" values (i.e. removes `False`, `0`, `None`, `[]`, `{}`, `""`).
 
-**Note**: the comparison operators mentioned in the Map section (`lt`, `le`, `eq`, `ne` (aliased to `not_equal(s)`), `gt`, `ge`) are also useful here. But the result from mapping versus filtering based on them is completely different. *Mapping* a condition means asking "divide the values into the ones that obey or not this condition". *Filtering* on a condition, on the other hand, means asking "ignore the values that don't obey this condition". Both are useful in their own ways. For example:
+**Note**: the built-in comparison operators (`lt`, `le`, `eq`, `ne` (aliased to `not_equal(s)`), `gt`, `ge`) are also useful here. But the result from mapping versus filtering based on them is completely different. *Mapping* a condition means asking "divide the values into the ones that obey or not this condition". *Filtering* on a condition, on the other hand, means asking "ignore the values that don't obey this condition". Both are useful in their own ways. For example:
 
 ```python
 (2*coin).map(not_equals).plot()
@@ -230,10 +250,8 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 
 ```python
 (2*coin).filter(not_equals).plot()
-#       ('Heads', 'Tails')  50.00% [====================                    ]
-#       ('Tails', 'Heads')  50.00% [====================                    ]
-#       ('Heads', 'Heads')   0.00% [                                        ]
-#       ('Tails', 'Tails')   0.00% [                                        ]
+#           ('Heads', 'Tails')  50.00% [====================                    ]
+#           ('Tails', 'Heads')  50.00% [====================                    ]
 ```
 
 <a name="simulating"/>
@@ -587,7 +605,7 @@ random.shuffle(tosses)
 # for that coin toss.
 for toss in tosses:
     # Must be normalized to avoid losing precision.
-    coins = coins.filter(lambda c: c[toss]).normalized()
+    coins = coins.filter(lambda c: c[toss]).normalize()
 
 coins.plot(sort=False)
 # (('Heads', 0.0), ('Tails', 1.0))   0.00% [                                        ]
