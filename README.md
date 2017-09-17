@@ -728,6 +728,7 @@ children.filter(lambda s: s[1] == 'Daughter').map(eq).plot()
 ### Nontransitive dice
 
 ```python
+# From https://en.wikipedia.org/wiki/Nontransitive_dice#Example
 # Three 6-sided dices with modified numbers.
 dice_a = Uniform(2, 2, 4, 4, 9, 9)
 dice_b = Uniform(1, 1, 6, 6, 8, 8)
@@ -740,15 +741,15 @@ assert math.isclose(dice_b.expected_value, dice_c.expected_value)
 
 # But they behave like rock paper scissors:
 
-join(dice_a, dice_b).map(lt).map(['A wins', 'B wins']).plot()
+join(dice_a, dice_b).map(gt).map({True: 'A wins', False: 'B wins'}).plot()
 #                   A wins  55.56% [======================                  ]
 #                   B wins  44.44% [==================                      ]
 
-join(dice_b, dice_c).map(lt).map(['B wins', 'C wins']).plot()
+join(dice_b, dice_c).map(gt).map({True: 'B wins', False: 'C wins'}).plot()
 #                   B wins  55.56% [======================                  ]
 #                   C wins  44.44% [==================                      ]
 
-join(dice_c, dice_a).map(lt).map(['C wins', 'A wins']).plot()
+join(dice_c, dice_a).map(gt).map({True: 'C wins', False: 'A wins'}).plot()
 #                   C wins  55.56% [======================                  ]
 #                   A wins  44.44% [==================                      ]
 ```
@@ -756,6 +757,7 @@ join(dice_c, dice_a).map(lt).map(['C wins', 'A wins']).plot()
 ### Sleeping beauty
 
 ```python
+# From: https://brilliant.org/discussions/thread/rationality-revisited-the-sleeping-beauty-paradox/
 # Today is Sunday. Sleeping Beauty drinks a powerful sleeping potion and
 # falls asleep. Her attendant tosses a fair coin and records the result.
 

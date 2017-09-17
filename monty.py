@@ -671,6 +671,7 @@ if __name__ == '__main__':
 
     # Nontransitive dice
     # ------------------
+    # From https://en.wikipedia.org/wiki/Nontransitive_dice#Example
     # Three 6-sided dices with modified numbers.
     dice_a = Uniform(2, 2, 4, 4, 9, 9)
     dice_b = Uniform(1, 1, 6, 6, 8, 8)
@@ -698,6 +699,7 @@ if __name__ == '__main__':
 
     # Sleeping beauty
     # ---------------
+    # From: https://brilliant.org/discussions/thread/rationality-revisited-the-sleeping-beauty-paradox/
     # Today is Sunday. Sleeping Beauty drinks a powerful sleeping potion and
     # falls asleep. Her attendant tosses a fair coin and records the result.
 
