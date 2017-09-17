@@ -10,7 +10,6 @@ The workhorse of this library is the `Distribution` class, which internally stor
 ## Table of contents
 
 - [Constructing](#constructing)
-- [Batteries included](#built-ins)
 - [Joining](#joining)
 - [Visualizing](#visualizing)
 - [Updating](#updating)
@@ -18,6 +17,7 @@ The workhorse of this library is the `Distribution` class, which internally stor
     - [Filter](#filter)
 - [Simulating](#simulating)
 - [Expected value / utility function](#expected_value-utility_function)
+- [Batteries included](#built-ins)
 - [Exmples](#examples)
 
 <a name="constructing"/>
@@ -61,68 +61,6 @@ coin_value.plot()
 #                          100  16.50% [=======                                 ]
 #                  Counterfeit   1.00% [                                        ]
 ```
-
-<a name="built-ins"/>
-
-## Batteries includes
-
-The `monty` library comes with a number of distributions commonly used in examples:
-
-```python
-coin = Uniform('Heads', 'Tails')
-dice = die = d6 = Count(6)
-d4 = Count(4)
-d8 = Count(8)
-d10 = Count(10)
-d12 = Count(12)
-d20 = Count(20)
-d100 = Count(100)
-card_ranks = Uniform('Ace', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'Jack', 'Queen', 'King')
-card_suits = Uniform('Clubs', 'Diamonds', 'Hearts', 'Spades')
-deck = join(card_ranks, card_suits)
-rock_paper_scissors = Uniform('Rock', 'Paper', 'Scissors')
-monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
-# https://en.wikipedia.org/wiki/Lottery_mathematics
-# Typical 6/49 game.
-lottery = Distribution(Win=1/13983816, Loss=REST)
-powerball = Distribution(Win=1/292201338, Loss=REST)
-# http://www.lightningsafety.noaa.gov/odds.shtml
-# Chance of being struck by lightning in your lifetime.
-lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
-# http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
-# Chance of being killed by meteorite in your lifetime.
-meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
-```
-
-Shorthands for distribution names:
-
-- **D**: Distribution
-- **U**: Uniform
-- **R**: Range
-- **C**: Count
-- **P**: Permutations
-- **F**: Fixed
-
-It's common for values to be tuples of numbers. To add two numbers one would use `distribution.map(lambda v: v[0] + v[1])`, or with starmap: `distribution.starmap(lambda a, b: a + b)`. To simplify operations like these, one can use one of the following pre-made functions, as in `distribution.map(add)`:
-
-- Boolean operators:
-    - **lt**: `v[0] < v[1]`
-    - **le**: `v[0] <= v[1]`
-    - **eq** (also `equal`, `equals`): `v[0] == v[1]`
-    - **ne** (also `not_equal`, `not_equals`): `v[0] != v[1]`
-    - **gt**: `v[0] > v[1]`
-    - **ge**: `v[0] >= v[1]`
-    - **contains**: `v[0] in v[1]`
-- Mathematical functions:
-    - **add** (same as Python's builtin `sum`): `v[0] + v[1] + v[2] + ...`
-    - **sub**: `v[0] - v[1]`
-    - **difference**: `abs(v[0] - v[1])`
-    - **mul** (also `product`): `v[0] * v[1] * v[2] * ...`
-- List getters:
-    - **first**: `v[0]`
-    - **second**: `v[1]`
-    - **third**: `v[2]`
-    - **last**: `v[-1]`
 
 <a name="joining"/>
 
@@ -186,12 +124,21 @@ Distributions are immutable objects, but they support creating modified copies. 
 
 ### Map
 
-`distribution.map` takes a function `fn` as parameter, and returns a new distribution `(fn(value), odds)`. If multiple values mapped to the same new value, their odds will add up:
+`distribution.map` takes as parameter a function, or a dictionary, or keyword arguments, and returns a new distribution `(fn(value), odds)`. If multiple values mapped to the same new value, their odds will add up:
 
 ```python
 dice.map(lambda v: v > 4).plot()
-#                    False  66.67% [===========================             ]
-#                     True  33.33% [=============                           ]
+#                        False  66.67% [===========================             ]
+#                         True  33.33% [=============                           ]
+
+coin.map(Tails='A', Heads='B').plot()
+#                            B  50.00% [====================                    ]
+#                            A  50.00% [====================                    ]
+
+dice.map({1: 0, 2: 0, 3: 1, 4: 1, 5: 2, 6: 2}).plot()
+#                            0  33.33% [=============                           ]
+#                            1  33.33% [=============                           ]
+#                            2  33.33% [=============                           ]
 ```
 
 Because of this behavior, `map` is aliased to `group` and `group_by`.
@@ -334,6 +281,69 @@ import math
 lottery.map(Win=400_000_000, Loss=0).utility(lambda v: math.log(v, 1.1) if v else 0)
 # 1.4861175606104777e-05
 ```
+
+<a name="built-ins"/>
+
+## Batteries includes
+
+The `monty` library comes with a number of distributions commonly used in examples:
+
+```python
+coin = Uniform('Heads', 'Tails')
+dice = die = d6 = Count(6)
+d4 = Count(4)
+d8 = Count(8)
+d10 = Count(10)
+d12 = Count(12)
+d20 = Count(20)
+d100 = Count(100)
+card_ranks = Uniform('Ace', 2, 3, 4, 5, 6, 7, 8, 9, 10, 'Jack', 'Queen', 'King')
+card_suits = Uniform('Clubs', 'Diamonds', 'Hearts', 'Spades')
+deck = join(card_ranks, card_suits)
+rock_paper_scissors = Uniform('Rock', 'Paper', 'Scissors')
+monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
+# https://en.wikipedia.org/wiki/Lottery_mathematics
+# Typical 6/49 game.
+lottery = Distribution(Win=1/13983816, Loss=REST)
+powerball = Distribution(Win=1/292201338, Loss=REST)
+# http://www.lightningsafety.noaa.gov/odds.shtml
+# Chance of being struck by lightning in your lifetime.
+lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
+# http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
+# Chance of being killed by meteorite in your lifetime.
+meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
+```
+
+Shorthands for distribution names:
+
+- **D**: Distribution
+- **U**: Uniform
+- **R**: Range
+- **C**: Count
+- **P**: Permutations
+- **F**: Fixed
+
+It's common for values to be tuples of numbers. To add two numbers one would use `distribution.map(lambda v: v[0] + v[1])`, or with starmap: `distribution.starmap(lambda a, b: a + b)`. To simplify operations like these, one can use one of the following pre-made functions, as in `distribution.map(add)`:
+
+- Boolean operators:
+    - **lt**: `v[0] < v[1]`
+    - **le**: `v[0] <= v[1]`
+    - **eq** (also `equal`, `equals`): `v[0] == v[1]`
+    - **ne** (also `not_equal`, `not_equals`): `v[0] != v[1]`
+    - **gt**: `v[0] > v[1]`
+    - **ge**: `v[0] >= v[1]`
+    - **contains**: `v[0] in v[1]`
+- Mathematical functions:
+    - **add** (same as Python's builtin `sum`): `v[0] + v[1] + v[2] + ...`
+    - **sub**: `v[0] - v[1]`
+    - **difference**: `abs(v[0] - v[1])`
+    - **mul** (also `product`): `v[0] * v[1] * v[2] * ...`
+- List getters:
+    - **first**: `v[0]`
+    - **second**: `v[1]`
+    - **third**: `v[2]`
+    - **last**: `v[-1]`
+
 
 <a name="examples"/>
 

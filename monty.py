@@ -288,6 +288,7 @@ D = Distribution
 U = Uniform
 R = Range
 C = Count
+P = Permutations
 F = Fixed
 
 # Common discrete distributions used in examples.
