@@ -254,6 +254,14 @@ class TestMap(unittest.TestCase):
     def test_sub_distribution(self):
         self.assertEqual(Distribution(A=1).map(A=Distribution(a=2, b=3)), (('a', 0.4), ('b', 0.6)))
 
+    def test_from_unhashable(self):
+        d = Distribution(([], 0.5), ([1, 2, 3], 0.5), force_merge=False)
+        self.assertEqual(d.map(len), ((0, 0.5), (3, 0.5)))
+
+    def test_to_unhashable(self):
+        d = Distribution((0, 0.5), (3, 0.5), force_merge=False)
+        self.assertEqual(d.map(lambda i: [1]*i), (([], 0.5), ([1, 1, 1], 0.5)))
+
 class TestFilter(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(Distribution().filter(lambda e: e), ())
@@ -275,6 +283,10 @@ class TestFilter(unittest.TestCase):
 
     def test_starfilter(self):
         self.assertEqual(Distribution(((1, 2), 10), ((3, 4), 20)).starfilter(lambda a, b: a+b), (((1, 2), 30), ((3, 4), 140)))
+
+    def test_from_unhashable(self):
+        d = Distribution(([], 0.5), ([1, 2, 3], 0.5), force_merge=False)
+        self.assertEqual(d.filter(len), (([], 0.0), ([1, 2, 3], 1.5)))
 
 if __name__  == '__main__':
     unittest.main()
