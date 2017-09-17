@@ -7,6 +7,21 @@ The workhorse of this library is the `Distribution` class, which internally stor
 
 **Note on terminology**: this library uses the term *odds* to mean any non-negative value that somehow associates a value with a likelihood. Odds are not normalized like probabilities, so you can have `Distribution(Tails=25, Heads=50)`, where the numbers `25` and `50` are used only for relative comparison (*heads* appears twice as more than *tails*, that is, 66% vs 33%). Those numbers are converted to probabilities when plotting, but under the hood they are kept as-is. I'm not sure if *odds* is the correct term, but it's an important distinction.
 
+## Table of contents
+
+- [Constructing](#constructing)
+- [Built-in distributions](#built-in-distributions)
+- [Joining](#joining)
+- [Visualizing](#visualizing)
+- [Updating](#updating)
+    - [Map](#map)
+    - [Filter](#filter)
+- [Simulating](#simulating)
+- [Expected value / utility function](#expected_value-utility_function)
+- [Exmples](#examples)
+
+<a name="constructing"/>
+
 ## Constructing
 
 There are several ways to construct a distribution. The following three examples are all equivalent:
@@ -38,6 +53,8 @@ coin_value = Distribution({
 })
 ```
 
+<a name="built-in-distributions"/>
+
 ## Built-in distributions
 
 The `monty` library comes with a number of distributions commonly used in examples:
@@ -67,6 +84,8 @@ lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
 # Chance of being killed by meteorite in your lifetime.
 meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
 ```
+
+<a name="joining"/>
 
 ## Joining
 
@@ -100,6 +119,8 @@ Additionally, the multiplication operator `*` has been overloaded to join a dist
 
 **Warning**: joining two distributions, `join(A, B)`, results in a distribution where the values are pairs `(a, b)`. Joining this resulting distribution with another one, `join(join(A, B), C)`, will not result in a distribution of triples `(a, b, c)`, but of nested pairs `((a, b), c)`. In the same vein, `A*1` results in values wrapped in a single-value tuple `(a,)`. This is why the addition operator was not overloaded, otherwise `A+B+C` would result in a confusingly nested distribution. Use `join(A, B, C)` in this case.
 
+<a name="visualizing"/>
+
 ## Visualizing
 
 You can retrieve the contents of a distribution in three ways:
@@ -116,9 +137,13 @@ card_suits.plot()
 #                   Spades  25.00% [==========                              ]
 ```
 
+<a name="updating"/>
+
 ## Updating
 
 Distributions are immutable objects, but they support creating modified copies. Remember the distribution is modeled as a list of pairs `(value, odds)`. There are two main functions to update a distribution: `distribution.map` updates each `value`; and `distribution.filter` updates each `odds`.
+
+<a name="map"/>
 
 ### Map
 
@@ -137,6 +162,8 @@ Often your `value` will be a tuple. For example, in `dice * 4` the values are tu
 Also, `distribution.starmap` invokes `fn(*value)` instead of `fn(value)`, making it easier to access each individual item. For example, `join(coin, dice).starmap(lambda toss, roll: toss == 'Heads' and roll > 4)`.
 
 **Note**: your mapping function may return another Distribution object, which is then integrated into the parent distribution. This allows you to split a value, or remove it completely. This is a feature of the construction, not of the mapping.
+
+<a name="filter"/>
 
 ### Filter
 
@@ -210,7 +237,9 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 #       ('Tails', 'Tails')   0.00% [                                        ]
 ```
 
-## Generating
+<a name="simulating"/>
+
+## Simulating
 
 The function `distribution.generate(n)` returns *n* random values sampled from the distribution (or infinite values, if `n==-1` or not specified).
 
@@ -249,6 +278,8 @@ dice.monte_carlo(remove_rising).plot()
 #                            6  16.00% [======                                  ]
 ```
 
+<a name="expected_value-utility_function"/>
+
 ## Expected value / utility function
 
 Sometimes you want to summarize a complex distribution into a single value. For this purpose, the Distribution class implements the `distribution.expected_value` property and the `distribution.utlity(fn)` method.
@@ -264,6 +295,8 @@ import math
 lottery.map(Win=400_000_000, Loss=0).utility(lambda v: math.log(v, 1.1) if v else 0)
 # 1.4861175606104777e-05
 ```
+
+<a name="examples"/>
 
 ## Examples
 
