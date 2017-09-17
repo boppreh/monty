@@ -424,51 +424,46 @@ bus_distribution.filter(lambda e: '23:' not in e).plot()
 ### Monty Hall problem
 
 ```python
-# A car is put behind one of three doors.
-car_positions = Uniform(1, 2, 3)
+# A car is put behind one of three doors. The participant chooses door number 1.
+# The show host (Monty Hall) opens one of the remaining doors, revealing it's
+# empty (if the car is behind door number 1, Monty opens door 2 or 3 at random).
+# The participant is then asked if they want to stay with their choice, or
+# switch to the other unopened door. Which strategy wins?
 
-# The participant starts selecting door number 1.
+car_position = Uniform(1, 2, 3)
+# Model the game as a pair `(car_position, alternative_door)`.
+game = car_position.map({1: Uniform((1, 2), (1, 3)), 2: (2, 2), 3: (3, 3)})
 
-def open_door(car_position):
-    # The host opens one of the other doors that does not contain the car.
-    opened_door = {1: random.choice([2, 3]), 2: 3, 3: 2}[car_position]
-    return (car_position, opened_door)
+game.plot()
+#                       (2, 2)  33.33% [=============                           ]
+#                       (3, 3)  33.33% [=============                           ]
+#                       (1, 2)  16.67% [=======                                 ]
+#                       (1, 3)  16.67% [=======                                 ]
 
-def best_strategy(car_position, opened_door):
-    # Seeing the empty door, the participant may choose to switch.
-    switched = {2: 3, 3: 2}[opened_door]
-
-    # For *this* game, which strategy wins?
-    return 'Switching wins' if switched == car_position else 'Staying wins'
-
-    # Note that because only two doors remain, and the strategies are
-    # always opposites, you can negate the final condition and simplify
-    # to just "return 'stay' if car_position == 1 else 'switch'".
-    # But if you realise this, the result becomes trivial.
-
-# Compute the total likelihood of each strategy winning.
-car_positions.map(open_door).starmap(best_strategy).plot()
-#           Switching wins [===========================             ]  66.67%
-#             Staying wins [=============                           ]  33.33%
+best_strategy = lambda car, alternative: 'Switch' if car == alternative else 'Stay'
+game.starmap(best_strategy).plot()
+#                       Switch  66.67% [===========================             ]
+#                         Stay  33.33% [=============                           ]
 ```
 
 ### Monty Hall - Ignorant Monty version
 
 ```python
-# (using `best_strategy` from previuos example)
-#
 # Same setup as classic Monty Hall, now with host opening door 2 or 3 at
-# random.
-opened_doors = Uniform(2, 3)
+# random (i.e. offering door 3 or 2 at random).
+car_position = Uniform(1, 2, 3)
+alternative_door = Uniform(3, 2)
 
-# But we only look at situations where the opened door *just happened* to
-# not be the car door.
-game = join(car_positions, opened_doors).filter(not_equals)
+# But we only look at scenarios where the opened door *just happened* to
+# not be the car door (i.e. the car *just happened* to be in door 1 or
+# the alternative door).
+is_allowed = lambda car, alternative: car in (1, alternative)
+game = join(car_position, alternative_door).starfilter(is_allowed)
 
-# What are the strategy likelihoods for winning then?
+best_strategy = lambda car, alternative: 'Switch' if car == alternative else 'Stay'
 game.starmap(best_strategy).plot()
-#            Switching wins [====================                    ]  50.00%
-#              Staying wins [====================                    ]  50.00%
+#                         Stay  50.00% [====================                    ]
+#                       Switch  50.00% [====================                    ]
 ```
 
 ### Throw two dice

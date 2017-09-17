@@ -186,6 +186,13 @@ class Distribution:
         return self._nest(helper)
     update = filter
 
+    def starfilter(self, fn):
+        """
+        Behaves like `distribution.filter`, but the given function `fn` is called
+        as `fn(*e)` instead of `fn(e)`.
+        """
+        return self.filter(lambda e: fn(*e))
+
     def map(self, fn=None, **kwargs):
         """
         Applies a function to each value in this distribution, then returns the
