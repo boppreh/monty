@@ -45,6 +45,7 @@ class Distribution:
 
         Examples:
 
+            Distribution(a=0.5, b=0.1, c=0.4)
             Distribution(a=0.5, b=0.1, c=REST)
             Distribution({'a': 0.5, 'b': 0.1, 'c': REST})
             Distribution([('a', 0.5) ('b', 0.1), ('c', REST)])
@@ -274,6 +275,7 @@ class Uniform(Distribution):
         )
     """
     def __init__(self, *items, **kwargs):
+        if len(items) == 1 and hasattr(items[0], '__iter__'): items = items[0]
         super().__init__(*((item, 1/len(items)) for item in items), **kwargs)
 
 class Fixed(Distribution):
@@ -303,6 +305,7 @@ class Permutations(Uniform):
     Uniform distribution of all possible permutations of the given values.
     """
     def __init__(self, *items, **kwargs):
+        if len(items) == 1 and hasattr(items[0], '__iter__'): items = items[0]
         super().__init__(*itertools.permutations(items), **kwargs)
 
 # Shorthand.
