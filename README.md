@@ -103,25 +103,26 @@ Shorthands for distribution names:
 - **P**: Permutations
 - **F**: Fixed
 
-Useful mathematical and boolean operators:
+It's common for values to be tuples of numbers. To add two numbers one would use `distribution.map(lambda v: v[0] + v[1])`, or with starmap: `distribution.starmap(lambda a, b: a + b)`. To simplify operations like these, one can use one of the following pre-made functions, as in `distribution.map(add)`:
 
-- **lt**: `v` -> `v[0] < v[1]`
-- **le**: `v` -> `v[0] <= v[1]`
-- **eq** (also `equal`, `equals`): `v` -> `v[0] == v[1]`
-- **ne** (also `not_equal`, `not_equals`): `v` -> `v[0] != v[1]`
-- **gt**: `v` -> `v[0] > v[1]`
-- **ge**: `v` -> `v[0] >= v[1]`
-- **contains**: `v` -> `v[0] in v[1]`
-
-- **add** (same as Python's builtin `sum`): `v` -> `v[0] + v[1] + v[2] + ...`
-- **sub**: `v` -> `v[0] - v[1]`
-- **difference**: `v` -> `abs(v[0] - v[1])`
-- **mul** (also `product`): `v` -> `v[0] * v[1] * v[2] * ...`
-
-- **first**: `v` -> `v[0]`
-- **second**: `v` -> `v[1]`
-- **third**: `v` -> `v[2]`
-- **last**: `v` -> `v[-1]`
+- Boolean operators:
+    - **lt**: `v[0] < v[1]`
+    - **le**: `v[0] <= v[1]`
+    - **eq** (also `equal`, `equals`): `v[0] == v[1]`
+    - **ne** (also `not_equal`, `not_equals`): `v[0] != v[1]`
+    - **gt**: `v[0] > v[1]`
+    - **ge**: `v[0] >= v[1]`
+    - **contains**: `v[0] in v[1]`
+-Mathematical functions:
+    - **add** (same as Python's builtin `sum`): `v[0] + v[1] + v[2] + ...`
+    - **sub**: `v[0] - v[1]`
+    - **difference**: `abs(v[0] - v[1])`
+    - **mul** (also `product`): `v[0] * v[1] * v[2] * ...`
+- List getters:
+    - **first**: `v[0]`
+    - **second**: `v[1]`
+    - **third**: `v[2]`
+    - **last**: `v[-1]`
 
 <a name="joining"/>
 
