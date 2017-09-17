@@ -58,9 +58,33 @@ monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
 
 ## Joining
 
-You can compute the combinations of two or more distributions with the function `join`. For example, `join(coin, dice)` returns a distribution where the values are tuples for all possible combinations of coin tosses and dice rolls, with their combined odds (e.g. `('Tails', 5) -> 8.333%)`).
+You can compute the combinations of two or more distributions with the function `join`, creating tuples of combinations with multiplied probability:
 
-Additionally, the multiplication operator `*` has been overloaded to join a distribution with itself *n* times. For example, `coin*4` is the distribution of all possible tosses of 4 coins (e.g. `('Heads', 'Tails', 'Heads', 'Tails') -> 6.25%`).
+```
+join(coin, dice).plot()
+#                 ('Heads', 1)   8.33% [===                                     ]
+#                 ('Heads', 2)   8.33% [===                                     ]
+#                 ('Heads', 3)   8.33% [===                                     ]
+#                 ('Heads', 4)   8.33% [===                                     ]
+#                 ('Heads', 5)   8.33% [===                                     ]
+#                 ('Heads', 6)   8.33% [===                                     ]
+#                 ('Tails', 1)   8.33% [===                                     ]
+#                 ('Tails', 2)   8.33% [===                                     ]
+#                 ('Tails', 3)   8.33% [===                                     ]
+#                 ('Tails', 4)   8.33% [===                                     ]
+#                 ('Tails', 5)   8.33% [===                                     ]
+#                 ('Tails', 6)   8.33% [===                                     ]
+```
+
+Additionally, the multiplication operator `*` has been overloaded to join a distribution with itself *n* times.
+
+```
+(coin*2).plot()
+#           ('Heads', 'Heads')  25.00% [==========                              ]
+#           ('Heads', 'Tails')  25.00% [==========                              ]
+#           ('Tails', 'Heads')  25.00% [==========                              ]
+#           ('Tails', 'Tails')  25.00% [==========                              ]
+```
 
 **Warnings**: joining two distributions, `join(A, B)`, results in a distribution where the values are pairs `(a, b)`. Joining this resulting distribution with another one, `join(join(A, B), C)`, will not result in a distribution of triples `(a, b, c)`, but of nested pairs `((a, b), c)`. In the same vein, `A*1` results in values wrapped in a single-value tuple `(a,)`. This is why the addition operator was not overloaded, otherwise `A+B+C` would result in a confusingly nested distribution. Use `join(A, B, C)` in this case.
 
@@ -68,9 +92,9 @@ Additionally, the multiplication operator `*` has been overloaded to join a dist
 
 You can retrieve the contents of a distribution in three ways:
 
-- As a list of pairs `(value, odds)`: `for value, odds in distribution: ...` (e.g. `len(distribution)` lists how many values there is).
+- As a list of pairs `(value, odds)` as in `print(distribution)`, `for value, odds in distribution: ...`, `dict(distribution)`, `len(distribution)` (but **not** `distribution[0]`, see next).
 - Fetching the odds for a specific value: `distribution[value]` (e.g. `coin['Tails'] == 0.5`).
-- Plotting to the terminal: `distribution.plot()`.
+- Plotting to the terminal: `distribution.plot(sort=True, filter=True)`.
 
 ```
 card_suits.plot()
