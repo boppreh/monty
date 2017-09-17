@@ -344,17 +344,19 @@ powerball = Distribution(Win=1/292201338, Loss=REST)
 lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
 # http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
 # Chance of being killed by meteorite in your lifetime.
-meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
+meteorite = Distribution({'Killed by meteorite': 1/700000, 'Safe': REST})
 ```
 
 Shorthands for distribution names:
 
-- **D**: Distribution
-- **U**: Uniform
-- **R**: Range
-- **C**: Count
-- **P**: Permutations
-- **F**: Fixed
+```python
+D = Distribution
+U = Uniform
+R = Range
+C = Count
+P = Permutations
+F = Fixed
+```
 
 It's common for values to be tuples of numbers. To add two numbers one would use `distribution.map(lambda v: v[0] + v[1])`, or with starmap: `distribution.starmap(lambda a, b: a + b)`. To simplify operations like these, one can use one of the following pre-made functions, as in `distribution.map(add)`:
 
