@@ -248,20 +248,22 @@ for card in deck.generate(10):
 Additionally, sometimes operations are too complex to fit in a pattern of `map` and `filter`, such as conditions that depend on consecutive draws. In these cases, the method `distribution.monte_carlo(fn, n=100000)` generates *n* examples from the distribution, feeds them as a generator to `fn`, and creates a new distribution from the list of values returned by `fn`. Note that operations performed this way are probabilistic, therefore the result may not be precise.
 
 ```python
-def remove_rising(nums):
-    last = None
+def remove_doubles(nums):
+    # Omits numbers that are twice as big as the previous one.
+    last = next(nums)
+    yield last
     for num in nums:
-        if last is not None and num != last+1:
+        if num != 2 * last:
             yield num
         last = num
 
-dice.monte_carlo(remove_rising).plot()
-#                            1  19.46% [========                                ]
-#                            5  16.23% [======                                  ]
-#                            4  16.18% [======                                  ]
-#                            3  16.10% [======                                  ]
-#                            2  16.03% [======                                  ]
-#                            6  16.00% [======                                  ]
+dice.monte_carlo(remove_doubles).plot()
+#                            5  18.24% [=======                                 ]
+#                            1  18.20% [=======                                 ]
+#                            3  18.18% [=======                                 ]
+#                            6  15.21% [======                                  ]
+#                            4  15.14% [======                                  ]
+#                            2  15.02% [======                                  ]
 ```
 
 <a name="expected_value-utility_function"/>
@@ -271,7 +273,7 @@ dice.monte_carlo(remove_rising).plot()
 Sometimes you want to summarize a complex distribution into a single value. For this purpose, the Distribution class implements the `distribution.expected_value` property and the `distribution.utlity(fn)` method.
 
 ```python
-# How much should you pay for a ticket to a $400,000,000 jackpot at a 1/13983816 chance?
+# How much should you pay for a ticket to a $400,000,000 jackpot at a 1/13,983,816 chance?
 lottery.map(Win=400_000_000, Loss=0).expected_value
 # 28.604495368074065
 
@@ -284,7 +286,7 @@ lottery.map(Win=400_000_000, Loss=0).utility(lambda v: math.log(v, 1.1) if v els
 
 <a name="built-ins"/>
 
-## Batteries includes
+## Batteries included
 
 The `monty` library comes with a number of distributions commonly used in examples:
 
@@ -649,9 +651,15 @@ join(d20, d12, d4).map(lambda s: abs(s[0]-s[1]) < s[2]).plot()
 #                    False  81.04% [================================        ]
 #                     True  18.96% [========                                ]
 
+# Equivalently, in two steps:
+join(join(d20, d12).map(difference), d4).map(lt).plot()
+#                    False  81.04% [================================        ]
+#                     True  18.96% [========                                ]
+```
 
-# Daughters
-# ---------
+### Daughters
+
+```python
 # If a family has two children...
 children = Uniform('Son', 'Daughter') * 2
 
@@ -743,43 +751,4 @@ guesses.starmap(verify_guess).plot()
 
 # She is right more often by guessing tails. But no event gave her any
 # evidence. Should she believe the coin landed tails?
-```
-
-### Ellsberg Paradox
-
-```python
-# (simplified here to uniform distribution)
-
-# In an urn, you have 9 balls of 3 colors: red, blue and yellow. 3 balls
-# are known to be red. All the other balls are either blue or yellow.
-
-red = Fixed('Red')
-either = Uniform('Blue', 'Yellow')
-urn = join(red, red, red, either, either, either, either, either, either)
-
-random_ball = urn.map(lambda s: Uniform(*s))
-
-# There are two lotteries:
-# Lottery A: A random ball is chosen. You win a prize if the ball is red.
-# Lottery B: A random ball is chosen. You win a prize if the ball is blue.
-# Question: In which lottery would you want to participate?
-random_ball.map({
-    'Red': 'Lottery A',
-    'Blue': 'Lottery B',
-    'Yellow': 'N/A',
-}).plot()
-#                Lottery A  33.33% [=============                           ]
-#                Lottery B  33.33% [=============                           ]
-#                      N/A  33.33% [=============                           ]
-
-# Lottery X: A random ball is chosen. You win a prize if the ball is either red or yellow.
-# Lottery Y: A random ball is chosen. You win a prize if the ball is either blue or yellow.
-# Question: In which lottery would you want to participate?
-random_ball.map({
-    'Red': 'Lottery A',
-    'Blue': 'Lottery B',
-    'Yellow': Uniform('Lottery A', 'Lottery B'),
-}).plot()
-#                Lottery A  50.00% [====================                    ]
-#                Lottery B  50.00% [====================                    ]
 ```
