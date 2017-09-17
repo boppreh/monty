@@ -1,7 +1,7 @@
 monty
 =====
 
-`monty` is a pure-Python, dependency-free library for computing and analyzing discrete distributions. It is useful for exploring hypothetical scenarios and solving tricky statistical problems. The name `monty` comes from the [*Monty Hall problem*](https://en.wikipedia.org/wiki/Monty_Hall_problem), a probability puzzle.
+`monty` is a pure-Python library for computing and analyzing discrete distributions. It is useful for exploring hypothetical scenarios and solving tricky statistical problems. The name `monty` comes from the [*Monty Hall problem*](https://en.wikipedia.org/wiki/Monty_Hall_problem), a probability puzzle.
 
 The workhorse of this library is the `Distribution` class, which internally stores the discrete distribution as a list of pairs `(value, odds)`. The `Distribution` class has functions for changing the values, updating the odds, generating random values, and plotting. A number of shortcuts and helpers is also included.
 
@@ -29,7 +29,7 @@ Additionally, the classes `Uniform`, `Fixed`, `Range`, `Count`, `Permutations` a
 
 Finally, the values may also be distributions, in a nested manner:
 
-```
+```python
 # 99% of the chance of the coin being legitimate, with an unknown value
 # uniformly distributed.
 coin_value = Distribution({
@@ -42,7 +42,7 @@ coin_value = Distribution({
 
 The `monty` library comes with a number of distributions commonly used in examples:
 
-```
+```python
 coin = Uniform('Heads', 'Tails')
 dice = die = d6 = Count(6)
 d4 = Count(4)
@@ -62,7 +62,7 @@ monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
 
 You can compute the combinations of two or more distributions with the function `join`, creating tuples of combinations with multiplied probability:
 
-```
+```python
 join(coin, dice).plot()
 #                 ('Heads', 1)   8.33% [===                                     ]
 #                 ('Heads', 2)   8.33% [===                                     ]
@@ -80,7 +80,7 @@ join(coin, dice).plot()
 
 Additionally, the multiplication operator `*` has been overloaded to join a distribution with itself *n* times.
 
-```
+```python
 (coin*2).plot()
 #           ('Heads', 'Heads')  25.00% [==========                              ]
 #           ('Heads', 'Tails')  25.00% [==========                              ]
@@ -88,7 +88,7 @@ Additionally, the multiplication operator `*` has been overloaded to join a dist
 #           ('Tails', 'Tails')  25.00% [==========                              ]
 ```
 
-**Warnings**: joining two distributions, `join(A, B)`, results in a distribution where the values are pairs `(a, b)`. Joining this resulting distribution with another one, `join(join(A, B), C)`, will not result in a distribution of triples `(a, b, c)`, but of nested pairs `((a, b), c)`. In the same vein, `A*1` results in values wrapped in a single-value tuple `(a,)`. This is why the addition operator was not overloaded, otherwise `A+B+C` would result in a confusingly nested distribution. Use `join(A, B, C)` in this case.
+**Warning**: joining two distributions, `join(A, B)`, results in a distribution where the values are pairs `(a, b)`. Joining this resulting distribution with another one, `join(join(A, B), C)`, will not result in a distribution of triples `(a, b, c)`, but of nested pairs `((a, b), c)`. In the same vein, `A*1` results in values wrapped in a single-value tuple `(a,)`. This is why the addition operator was not overloaded, otherwise `A+B+C` would result in a confusingly nested distribution. Use `join(A, B, C)` in this case.
 
 ## Visualizing
 
@@ -98,7 +98,7 @@ You can retrieve the contents of a distribution in three ways:
 - Fetching the odds for a specific value: `distribution[value]` (e.g. `coin['Tails'] == 0.5`).
 - Plotting to the terminal: `distribution.plot(sort=True, filter=True)`.
 
-```
+```python
 card_suits.plot()
 #                    Clubs  25.00% [==========                              ]
 #                 Diamonds  25.00% [==========                              ]
@@ -114,7 +114,7 @@ Distributions are immutable objects, but they support creating modified copies. 
 
 `distribution.map` takes a function `fn` as parameter, and returns a new distribution `(fn(value), odds)`. If multiple values mapped to the same new value, their odds will add up:
 
-```
+```python
 dice.map(lambda v: v > 4).plot()
 #                    False  66.67% [===========================             ]
 #                     True  33.33% [=============                           ]
@@ -136,7 +136,7 @@ This functions returns a copy of the distribution, with modified odds for each v
 
 - List: allows only values present in the list, changing the odds of any other value to 0. Think of it as focusing the distribution.
 
-```
+```python
 dice.filter([1, 2, 5, 6]).plot(sort=False)
 #                        1  25.00% [==========                              ]
 #                        2  25.00% [==========                              ]
@@ -148,7 +148,7 @@ dice.filter([1, 2, 5, 6]).plot(sort=False)
 
 - Dictionary, Distribution or keyword arguments: multiplies the odds by the corresponding value.
 
-```
+```python
 dice.filter({1: 1, 2: 1, 3: 0.5, 4: 0.5, 5: 1, 6: 1}).plot(sort=False)
 #                        1  16.67% [=======                                 ]
 #                        2  16.67% [=======                                 ]
@@ -160,7 +160,7 @@ dice.filter({1: 1, 2: 1, 3: 0.5, 4: 0.5, 5: 1, 6: 1}).plot(sort=False)
 
 - Function: calls `fn(value)` and expects a multiplier back (note that `True == 1` and `False == 0`, so boolean results are ok).
 
-```
+```python
 # Functions returns boolean:
 dice.filter(lambda v: v % 2 == 1).plot(sort=False)
 #                        1  33.33% [=============                           ]
@@ -171,7 +171,7 @@ dice.filter(lambda v: v % 2 == 1).plot(sort=False)
 #                        6   0.00% [                                        ]
 ```
 
-```
+```python
 # Function returns multiplier
 dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 #                        1  22.22% [=========                               ]
@@ -186,13 +186,13 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 
 **Note**: the comparison operators mentioned in the Map section (`lt`, `le`, `eq`, `ne` (aliased to `not_equal(s)`), `gt`, `ge`) are also useful here. But the result from mapping versus filtering based on them is completely different. *Mapping* a condition means asking "divide the values into the ones that obey or not this condition". *Filtering* on a condition, on the other hand, means asking "ignore the values that don't obey this condition". Both are useful in their own ways. For example:
 
-```
+```python
 (2*coin).map(not_equals).plot()
 #                    False  50.00% [====================                    ]
 #                     True  50.00% [====================                    ]
 ```
 
-```
+```python
 (2*coin).filter(not_equals).plot()
 #       ('Heads', 'Tails')  50.00% [====================                    ]
 #       ('Tails', 'Heads')  50.00% [====================                    ]
@@ -202,9 +202,9 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 
 ## Generating
 
-The function `distribution.generate(n)` returns *n* random values sampled from the distribution (or infinite values, if `n==-1`).
+The function `distribution.generate(n)` returns *n* random values sampled from the distribution (or infinite values, if `n==-1` or not specified).
 
-```
+```python
 for card in deck.generate(10):
     print('Is this your card?', card)
 
@@ -222,7 +222,7 @@ for card in deck.generate(10):
 
 Additionally, sometimes operations are too complex to fit in a pattern of `map` and `filter`, such as conditions that depend on consecutive draws. In these cases, the method `distribution.monte_carlo(fn, n=100000)` generates *n* examples from the distribution, feeds them as a generator to `fn`, and creates a new distribution from the list of values returned by `fn`. Note that operations performed this way are probabilistic, therefore the result may not be precise.
 
-```
+```python
 def remove_rising(nums):
     last = None
     for num in nums:
@@ -246,7 +246,7 @@ dice.monte_carlo(remove_rising).plot()
 
 ### Breast cancer
 
-```
+```python
 # Taken from https://betterexplained.com/articles/an-intuitive-and-short-explanation-of-bayes-theorem/ :
 # 80% of mammograms detect breast cancer when it is there.
 # 9.6% of mammograms detect breast cancer when it’s not there.
@@ -275,7 +275,7 @@ Distribution({
 
 ### Waiting at the bus stop
 
-```
+```python
 # From https://www.gwern.net/docs/statistics/1994-falk#standard-problems-and-their-solution
 # It's 23:30, you are at the bus stop. Buses usually run at an interval of
 # 30 minutes, but you are only 60% sure they are operating at all at this
@@ -312,7 +312,7 @@ bus_distribution.filter(lambda e: '23:' not in e).plot()
 
 ### Monty Hall problem
 
-```
+```python
 # A car is put behind one of three doors.
 car_positions = Uniform(1, 2, 3)
 
@@ -343,7 +343,7 @@ car_positions.map(open_door).starmap(best_strategy).plot()
 
 ### Monty Hall - Ignorant Monty version
 
-```
+```python
 # (using `best_strategy` from previuos example)
 #
 # Same setup as classic Monty Hall, now with host opening door 2 or 3 at
@@ -362,7 +362,7 @@ game.starmap(best_strategy).plot()
 
 ### Throw two dice
 
-```
+```python
 # From http://www.mathteacherctk.com/blog/2013/01/13/a-pair-of-probability-games-for-beginners/
 # Throw two dice. I win if the difference is 0,1,2. You win if it is 3,4,5.
 # Wanna play?
@@ -379,7 +379,7 @@ game.starmap(best_strategy).plot()
 
 ### Unbiased flip from biased coin
 
-```
+```python
 # From John von Neuman (1951)
 
 # I want a fair coin flip, but I don't trust this coin. Can I "unbias" it?
@@ -394,7 +394,7 @@ b_coin = Distribution(Heads=0.6, Tails=REST)
 
 ### Mixing solutions
 
-```
+```python
 # Fun fact: you can also use likelihood distributions to keep track of
 # concentrations in solutions. `Solution` is a subclass of `Distribution`
 # that overloads `+`, `*`, and `/` to behave like a physical mix. This is
@@ -437,7 +437,7 @@ Solution({juice: 1, sugar_water: 1}).plot()
 
 ### Detecting coin bias
 
-```
+```python
 # We got a coin from a factory of biased coins. The factory makes 11 different
 # coins, each type flipping heads anywhere from 0% to 100% of the time.
 all_coin_types = [Distribution(Heads=i/10, Tails=REST) for i in range(11)]
@@ -487,7 +487,7 @@ coins.plot(sort=False)
 
 ### Makeshift dice
 
-```
+```python
 # I need a D20 roll, but all I have are D4. Can I just add 5xD4?
 d20.plot()
 #                        1   5.00% [==                                      ]
@@ -533,7 +533,7 @@ d20.plot()
 
 ### Dungeons and confused dragons
 
-```
+```python
 # Roll a D20, a D12 and a D4. What's the probability of the D20 and the D12
 # being less than the D4 away from each other?
 join(d20, d12, d4).map(lambda s: abs(s[0]-s[1]) < s[2]).plot()
@@ -561,7 +561,7 @@ children.filter(lambda s: s[1] == 'Daughter').map(eq).plot()
 
 ### Nontransitive dice
 
-```
+```python
 # Three 6-sided dices with modified numbers.
 dice_a = Uniform(2, 2, 4, 4, 9, 9)
 dice_b = Uniform(1, 1, 6, 6, 8, 8)
@@ -589,7 +589,7 @@ join(dice_c, dice_a).map(lt).map(['C wins', 'A wins']).plot()
 
 ### Sleeping beauty
 
-```
+```python
 # Today is Sunday. Sleeping Beauty drinks a powerful sleeping potion and
 # falls asleep. Her attendant tosses a fair coin and records the result.
 
@@ -638,7 +638,7 @@ guesses.starmap(verify_guess).plot()
 
 ### Ellsberg Paradox
 
-```
+```python
 # (simplified here to uniform distribution)
 
 # In an urn, you have 9 balls of 3 colors: red, blue and yellow. 3 balls
