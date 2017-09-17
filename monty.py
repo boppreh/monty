@@ -186,14 +186,18 @@ class Distribution:
         return self._nest(helper)
     update = filter
 
-    def map(self, fn):
+    def map(self, fn=None, **kwargs):
         """
         Applies a function to each value in this distribution, then returns the
         distribution of the aggregated results.
 
         `fn` can also be a dictionary, mapping values to their replacements.
         """
-        if not callable(fn): fn = fn.__getitem__
+        if kwargs:
+            assert fn is None
+            fn = kwargs.__getitem__
+        elif not callable(fn):
+            fn = fn.__getitem__
         return self._nest(lambda e: Distribution((fn(e), 1)))
     group = group_by = map
 
@@ -300,6 +304,16 @@ card_suits = Uniform('Clubs', 'Diamonds', 'Hearts', 'Spades')
 deck = join(card_ranks, card_suits)
 rock_paper_scissors = Uniform('Rock', 'Paper', 'Scissors')
 monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
+# https://en.wikipedia.org/wiki/Lottery_mathematics
+# Typical 6/49 game.
+lottery = Distribution(Win=1/13983816, Loss=REST)
+powerball = Distribution(Win=1/292201338, Loss=REST)
+# http://www.lightningsafety.noaa.gov/odds.shtml
+# Chance of being struck by lightning in your lifetime.
+lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
+# http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
+# Chance of being killed by meteorite in your lifetime.
+meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
 
 # Common filters and maps.
 import operator

@@ -56,6 +56,16 @@ card_suits = Uniform('Clubs', 'Diamonds', 'Hearts', 'Spades')
 deck = join(card_ranks, card_suits)
 rock_paper_scissors = Uniform('Rock', 'Paper', 'Scissors')
 monty_hall_doors = Permutations('Goat', 'Goat', 'Car')
+# https://en.wikipedia.org/wiki/Lottery_mathematics
+# Typical 6/49 game.
+lottery = Distribution(Win=1/13983816, Loss=REST)
+powerball = Distribution(Win=1/292201338, Loss=REST)
+# http://www.lightningsafety.noaa.gov/odds.shtml
+# Chance of being struck by lightning in your lifetime.
+lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
+# http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
+# Chance of being killed by meteorite in your lifetime.
+meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
 ```
 
 ## Joining
@@ -239,6 +249,21 @@ dice.monte_carlo(remove_rising).plot()
 #                            6  16.00% [======                                  ]
 ```
 
+## Expected value / utility function
+
+Sometimes you want to summarize a complex distribution into a single value. For this purpose, the Distribution class implements the `distribution.expected_value` property and the `distribution.utlity(fn)` method.
+
+```
+# How much should you pay for a ticket to a $400,000,000 jackpot at a 1/13983816 chance?
+lottery.map(Win=400_000_000, Loss=0).expected_value
+# 28.604495368074065
+
+# A dollar is less useful for a millionaire than for a poorer person.
+# Use a utility function with a logarithmic scale.
+import math
+lottery.map(Win=400_000_000, Loss=0).utility(lambda v: math.log(v, 1.1) if v else 0)
+# 1.4861175606104777e-05
+```
 
 ## Examples
 
