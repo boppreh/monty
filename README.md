@@ -3,14 +3,14 @@ monty
 
 `monty` is a pure-Python library for computing and analyzing discrete distributions. It is useful for exploring hypothetical scenarios and solving tricky statistical problems. The name `monty` comes from the [*Monty Hall problem*](https://en.wikipedia.org/wiki/Monty_Hall_problem), a probability puzzle.
 
-The workhorse of this library is the `Distribution` class, which internally stores the discrete distribution as a list of pairs `(value, odds)`. The `Distribution` class has functions for changing the values, updating the odds, generating random values, and plotting. A number of shortcuts and helpers is also included.
+The workhorse of this library is the `Distribution` class, which internally stores the discrete distribution as a list of pairs `(value, odds)`. The `Distribution` class has functions for changing the values, updating the odds, generating random values, plotting, computing utility functions, and more. A number of built-in distributions and helper functions is also included.
 
-**Note on terminology**: this library uses the term *odds* to mean any non-negative value that somehow associates a value with a likelihood. Odds are not normalized like probabilities, so you can have `Distribution(Tails=25, Heads=50)`, where the numbers `25` and `50` are used only for relative comparison (*heads* appears twice as more than *tails*, that is, 66% vs 33%). Those numbers are converted to probabilities when plotting, but under the hood they are kept as-is. I'm not sure if *odds* is the correct term, but it's an important distinction.
+**Note on terminology**: this library uses the term *odds* to mean any non-negative number that somehow associates a scenario with a likelihood. Odds are not normalized like probabilities, so you can have `Distribution(Tails=25, Heads=50)`, where the numbers `25` and `50` are used only for relative comparison (*heads* appears twice more than *tails*, that is, 66% vs 33%). Those numbers are converted to probabilities when plotting, but under the hood they are kept as-is. I'm not sure if *odds* is the correct term, but it's an important distinction.
 
 ## Table of contents
 
 - [Constructing](#constructing)
-- [Built-in distributions](#built-in-distributions)
+- [Batteries included](#built-ins)
 - [Joining](#joining)
 - [Visualizing](#visualizing)
 - [Updating](#updating)
@@ -45,17 +45,26 @@ Additionally, the classes `Uniform`, `Fixed`, `Range`, `Count`, `Permutations` a
 Finally, the values may also be distributions, in a nested manner:
 
 ```python
-# 99% of the chance of the coin being legitimate, with an unknown value
-# uniformly distributed.
+# 99% chance of the coin being legitimate, with an unknown monetary
+# value uniformly distributed between the possible coin types.
 coin_value = Distribution({
     Uniform(1, 5, 10, 25, 50, 100): 0.99,
     'Counterfeit': REST,
 })
+
+coin_value.plot()
+#                            1  16.50% [=======                                 ]
+#                            5  16.50% [=======                                 ]
+#                           10  16.50% [=======                                 ]
+#                           25  16.50% [=======                                 ]
+#                           50  16.50% [=======                                 ]
+#                          100  16.50% [=======                                 ]
+#                  Counterfeit   1.00% [                                        ]
 ```
 
-<a name="built-in-distributions"/>
+<a name="built-ins"/>
 
-## Built-in distributions
+## Batteries includes
 
 The `monty` library comes with a number of distributions commonly used in examples:
 
@@ -84,6 +93,35 @@ lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
 # Chance of being killed by meteorite in your lifetime.
 meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
 ```
+
+Shorthands for distribution names:
+
+- **D**: Distribution
+- **U**: Uniform
+- **R**: Range
+- **C**: Count
+- **P**: Permutations
+- **F**: Fixed
+
+Useful mathematical and boolean operators:
+
+- **lt**: `v` -> `v[0] < v[1]`
+- **le**: `v` -> `v[0] <= v[1]`
+- **eq** (also `equal`, `equals`): `v` -> `v[0] == v[1]`
+- **ne** (also `not_equal`, `not_equals`): `v` -> `v[0] != v[1]`
+- **gt**: `v` -> `v[0] > v[1]`
+- **ge**: `v` -> `v[0] >= v[1]`
+- **contains**: `v` -> `v[0] in v[1]`
+
+- **add** (same as Python's builtin `sum`): `v` -> `v[0] + v[1] + v[2] + ...`
+- **sub**: `v` -> `v[0] - v[1]`
+- **difference**: `v` -> `abs(v[0] - v[1])`
+- **mul** (also `product`): `v` -> `v[0] * v[1] * v[2] * ...`
+
+- **first**: `v` -> `v[0]`
+- **second**: `v` -> `v[1]`
+- **third**: `v` -> `v[2]`
+- **last**: `v` -> `v[-1]`
 
 <a name="joining"/>
 
@@ -284,7 +322,7 @@ dice.monte_carlo(remove_rising).plot()
 
 Sometimes you want to summarize a complex distribution into a single value. For this purpose, the Distribution class implements the `distribution.expected_value` property and the `distribution.utlity(fn)` method.
 
-```
+```python
 # How much should you pay for a ticket to a $400,000,000 jackpot at a 1/13983816 chance?
 lottery.map(Win=400_000_000, Loss=0).expected_value
 # 28.604495368074065
@@ -300,7 +338,9 @@ lottery.map(Win=400_000_000, Loss=0).utility(lambda v: math.log(v, 1.1) if v els
 
 ## Examples
 
-    from monty import *
+```python
+from monty import *
+```
 
 ### Breast cancer
 
