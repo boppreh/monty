@@ -200,6 +200,46 @@ dice.filter(lambda v: 1 if v % 2 else 0.5).plot(sort=False)
 #       ('Tails', 'Tails')   0.00% [                                        ]
 ```
 
+## Generating
+
+The function `distribution.generate(n)` returns *n* random values sampled from the distribution (or infinite values, if `n==-1`).
+
+```
+for card in deck.generate(10):
+    print('Is this your card?', card)
+
+# Is this your card? (9, 'Clubs')
+# Is this your card? (2, 'Diamonds')
+# Is this your card? (5, 'Hearts')
+# Is this your card? ('Jack', 'Spades')
+# Is this your card? (4, 'Hearts')
+# Is this your card? (8, 'Clubs')
+# Is this your card? ('King', 'Hearts')
+# Is this your card? (9, 'Diamonds')
+# Is this your card? (5, 'Diamonds')
+# Is this your card? (2, 'Clubs')
+```
+
+Additionally, sometimes operations are too complex to fit in a pattern of `map` and `filter`, such as conditions that depend on consecutive draws. In these cases, the method `distribution.monte_carlo(fn, n=100000)` generates *n* examples from the distribution, feeds them as a generator to `fn`, and creates a new distribution from the list of values returned by `fn`. Note that operations performed this way are probabilistic, therefore the result may not be precise.
+
+```
+def remove_rising(nums):
+    last = None
+    for num in nums:
+        if last is not None and num != last+1:
+            yield num
+        last = num
+
+dice.monte_carlo(remove_rising).plot()
+#                            1  19.46% [========                                ]
+#                            5  16.23% [======                                  ]
+#                            4  16.18% [======                                  ]
+#                            3  16.10% [======                                  ]
+#                            2  16.03% [======                                  ]
+#                            6  16.00% [======                                  ]
+```
+
+
 ## Examples
 
     from monty import *

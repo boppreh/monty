@@ -1,4 +1,4 @@
-import sys
+import math
 import random
 import itertools
 from collections import Counter, defaultdict
@@ -91,12 +91,12 @@ class Distribution:
             running.append((value, total))
 
         if total < 1:
-            if 1 - total < sys.float_info.epsilon:
+            if math.isclose(1, total):
                 # Compensate for floating point innacuracies.
-                running[-1] = (running[-1][1], 1)
+                running[-1] = (running[-1][0], 1)
             else:
                 raise ValueError('Incomplete distribution. Total odds is just {:%}.'.format(total))
-
+        print(running)
         while n != 0:
             choice = random.random()
             yield next(value for value, r in running if r >= choice)
