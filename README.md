@@ -11,7 +11,7 @@ The workhorse of this library is the `Distribution` class, which internally stor
 
 - [Constructing](#constructing)
 - [Joining](#joining)
-- [Visualizing](#visualizing)
+- [Reading](#Reading)
 - [Updating](#updating)
     - [Map](#map)
     - [Filter](#filter)
@@ -96,15 +96,28 @@ Additionally, the multiplication operator `*` has been overloaded to join a dist
 
 **Warning**: joining two distributions, `join(A, B)`, results in a distribution where the values are pairs `(a, b)`. Joining this resulting distribution with another one, `join(join(A, B), C)`, will not result in a distribution of triples `(a, b, c)`, but of nested pairs `((a, b), c)`. In the same vein, `A*1` results in values wrapped in a single-value tuple `(a,)`. This is why the addition operator was not overloaded, otherwise `A+B+C` would result in a confusingly nested distribution. Use `join(A, B, C)` in this case.
 
-<a name="visualizing"/>
+<a name="Reading"/>
 
-## Visualizing
+## Reading
 
-You can retrieve the contents of a distribution in three ways:
+If printed or iterated over, a Distribution acts like a list of pairs `(value, odds)`
 
-- As a list of pairs `(value, odds)` as in `print(distribution)`, `for value, odds in distribution: ...`, `dict(distribution)`, `len(distribution)` (but **not** `distribution[0]`, see next).
-- Fetching the odds for a specific value: `distribution[value]` (e.g. `coin['Tails'] == 0.5`).
-- Plotting to the terminal: `distribution.plot(sort=True, filter=True)`.
+```python
+print(len(coin), coin)
+# 2 (('Heads', 0.5), ('Tails', 0.5))
+
+for value, odds in coin:
+    print(value)
+# 'Heads'
+# 'Tails'
+
+dict(coin)
+# {'Heads': 0.5, 'Tails': 0.5}
+```
+
+Access single values by using `distribution[value]`, `distribution.expected_value` (for numeric values), `distribution.utility(fn)`, together with `distribution.mode` and `distribution.mean` (for numeric values).
+
+Finally, you can also plot to the terminal: `distribution.plot(sort=True, filter=True)`.
 
 ```python
 card_suits.plot()

@@ -31,39 +31,74 @@ class Distribution:
             (0.01, 'Sideways'),
         )
     """
-    def __init__(self, *args, force_flatten=True, **kwargs):
+    def __init__(self, *args, force_merge=True, force_flatten=True, **kwargs):
+        """
+        Creates a new distribution from keyword arguments, a dictionary, a list
+        of tuples `(value, odds)`, or just many tuples as arguments. If the
+        odds for an item is the unqiue object REST, it's taken as the rest of
+        the probability mass.
+
+        - `force_merge`: merges the odds of equal values. Requires values to
+        be hashable. Defaults to True.
+        - `force_flatten`: if a value is another Distribution or subclass,
+        incorporates its values into a flat object. Defaults to True.
+
+        Examples:
+
+            Distribution(a=0.5, b=0.1, c=REST)
+            Distribution({'a': 0.5, 'b': 0.1, 'c': REST})
+            Distribution([('a', 0.5) ('b', 0.1), ('c', REST)])
+            Distribution(('a', 0.5) ('b', 0.1), ('c', REST))
+        """
         self.force_flatten = force_flatten
+        self.force_merge = force_merge
 
         if kwargs:
             # Distribution(a=0.5, b=0.1, c=REST)
             assert not args
-            args = [kwargs]
-        if len(args) == 1 and isinstance(args[0], dict):
+            args = kwargs.items()
+        elif len(args) == 1 and isinstance(args[0], dict):
             # Distribution({'a': 0.5, 'b': 0.1, 'c': REST})
             args = args[0].items()
+        elif len(args) == 1 and isinstance(args[0], list):
+            # Distribution([('a', 0.5) ('b', 0.1), ('c', REST)])
+            args = args[0]
+        else:
+            # Distribution(('a', 0.5) ('b', 0.1), ('c', REST))
+            pass
+
+        self.total = 0
 
         pairs_list = []
-        self.total = 0
+        used_rest = False
         for value, odds in args:
+            if used_rest:
+                raise ValueError('REST probability can only be used for the last item.')
+
             if odds is REST:
+                if self.total > 1:
+                    raise ValueError('REST probability can only be used when the total is < 1.')
                 odds = 1 - self.total
+                used_rest = True
+
+            if odds < 0:
+                raise ValueError('Odds cannot be negative.')
 
             if force_flatten and isinstance(value, Distribution):
-                for sub_value, sub_odds in value.normalized():
-                    pairs_list.append((sub_value, odds*sub_odds))
-                    self.total += odds*sub_odds
+                pairs_list.extend((v, odds*o) for v, o in value.normalize())
             else:
                 pairs_list.append((value, odds))
-                self.total += odds
 
-        self.pairs = tuple(pairs_list)
+            self.total += odds
 
-        try:
-            self.dict = dict(self.pairs).__getitem__
-            self.hashable = True
-        except TypeError:
-            self.dict = None
-            self.hashable = False
+        if force_merge:
+            counter = Counter()
+            for value, odds in pairs_list:
+                counter[value] += odds
+            self.pairs = tuple(counter.items())
+        else:
+            # Using tuple makes it hashable as long as the values are hashable.
+            self.pairs = tuple(pairs_list)
 
     def __getitem__(self, target):
         for value, odds in self:
@@ -71,12 +106,14 @@ class Distribution:
                 return odds
         raise KeyError(target)
 
-    def normalized(self):
+    def normalize(self):
         """
         Returns a new distribution with the probabilities normalized so that
         their total sums to 1.
         """
-        return Distribution(*((v, p/self.total) for v, p in self), force_flatten=self.force_flatten)
+        if math.isclose(self.total, 1) or self.total == 0:
+            return self
+        return Distribution(*((v, p/self.total) for v, p in self), force_flatten=self.force_flatten, force_merge=self.force_merge)
 
     def generate(self, n=-1):
         """
@@ -84,23 +121,33 @@ class Distribution:
         instances drawn from this distribution. If `n` is given, the only `n`
         are generated.
         """
-        total = 0
-        running = []
-        for value, odds in self.normalized():
-            total += odds
-            running.append((value, total))
+        if n == 0:
+            return
+        if self.total == 0:
+            raise ValueError('Cannot generate examples of empty distribution: ' + repr(self))
 
-        if total < 1:
-            if math.isclose(1, total):
-                # Compensate for floating point innacuracies.
-                running[-1] = (running[-1][0], 1)
-            else:
-                raise ValueError('Incomplete distribution. Total odds is just {:%}.'.format(total))
-        print(running)
+        running_total = 0
+        cummulative_pairs = []
+        for value, odds in self:
+            running_total += odds
+            cummulative_pairs.append((value, running_total))
+
+        # Compensate for floating point innacuracies by using the last
+        # value as catch-all.
+        cummulative_pairs[-1] = (cummulative_pairs[-1][0], self.total)
+        
         while n != 0:
-            choice = random.random()
-            yield next(value for value, r in running if r >= choice)
+            choice = random.random() * self.total
+            yield next(value for value, r in cummulative_pairs if r >= choice)
             n -= 1
+
+    def monte_carlo(self, fn, n=100000):
+        """
+        Given a distribution and a function to process lists of examples, returns
+        the distribution of processed examples.
+        """
+        counter = Counter(fn(self.generate(n)))
+        return Distribution(*sorted(counter.items()), force_flatten=self.force_flatten)
 
     def plot(self, title=None, sort=True, filter=True):
         """
@@ -111,12 +158,12 @@ class Distribution:
 
         if sort:
             counter = Counter()
-            for v, p in self.normalized():
-                if filter or p != 0:
+            for v, p in self.normalize():
+                if p != 0 or not filter:
                     counter[str(v)] += p
             pairs = counter.most_common()
         else:
-            pairs = ((str(v), p) for v, p in self.normalized() if filter or p != 0)
+            pairs = ((str(v), p) for v, p in self.normalize() if filter or p != 0)
 
         for str_value, probability in pairs:
             bar = '['+(round(probability * 40) * '=').ljust(40)+']'
@@ -130,36 +177,28 @@ class Distribution:
         return join(*[self]*n)
     __rmul__ = __mul__
 
-    def monte_carlo(self, fn=lambda c: c, n=100000):
-        """
-        Given a distribution and a function to process lists of examples, returns
-        the distribution of processed examples.
-        """
-        examples = self.generate()
-        counter = Counter(fn(next(examples) for i in range(n)))
-        scale = 1/sum(counter.values()) # Note that `fn` may change the number of examples.
-        return Distribution(*((value, count*scale) for value, count in counter.most_common()), force_flatten=self.force_flatten)
-
-    def _nest(self, fn):
+    def transform(self, fn):
         """
         Replaces every value with a sub-distribution given by `fn(value)`.
         `fn` may return a Distribution (or Uniform) instance, or simply a
         list of (value, odds) pairs. Returns the flattened
         aggregated distribution.
         """
-        if self.hashable:
-            aggregated = defaultdict(float)
-            for value, odds in self:
-                for sub_value, sub_odds in fn(value):
-                    aggregated[sub_value] += sub_odds * odds
-            return Distribution(*aggregated.items(), force_flatten=self.force_flatten)
-        else:
-            new_pairs = []
-            for value, odds in self:
-                for sub_value, sub_odds in fn(value):
-                    new_pairs.append((sub_value, sub_odds * odds))
-            return Distribution(*new_pairs, force_flatten=self.force_flatten)
+        return Distribution(*(fn(*pair) for pair in self), force_flatten=self.force_flatten, force_merge=self.force_merge)
 
+    def _prepare_transformation(self, fn, kwargs):
+        if kwargs:
+            assert fn is None
+            return kwargs.__getitem__
+        elif fn is None:
+            return lambda c: bool(c)
+        elif isinstance(fn, (list, tuple)):
+            return fn.__contains__
+        elif hasattr(fn, '__getitem__'):
+            return fn.__getitem__
+        else:
+            return fn
+        
     def filter(self, fn=None, **kwargs):
         """
         Returns a distribution made of only the items that passed the given
@@ -169,21 +208,8 @@ class Distribution:
         `fn` can also be a dictionary mapping values to results, or a list,
         so that only items in the list will be selected.
         """
-        if kwargs:
-            assert fn is None
-            fn = kwargs.__getitem__
-        elif fn is None:
-            fn = lambda c: bool(c)
-        elif isinstance(fn, dict):
-            fn = fn.__getitem__
-        elif isinstance(fn, Distribution):
-            fn = fn.__getitem__
-        elif not callable(fn):
-            fn = fn.__contains__
-        def helper(e):
-            result = fn(e)
-            return [(e, float(result or 0))]
-        return self._nest(helper)
+        fn = self._prepare_transformation(fn, kwargs)
+        return self.transform(lambda v, p: (v, p*fn(v)))
     update = filter
 
     def starfilter(self, fn):
@@ -200,12 +226,8 @@ class Distribution:
 
         `fn` can also be a dictionary, mapping values to their replacements.
         """
-        if kwargs:
-            assert fn is None
-            fn = kwargs.__getitem__
-        elif not callable(fn):
-            fn = fn.__getitem__
-        return self._nest(lambda e: Distribution((fn(e), 1)))
+        fn = self._prepare_transformation(fn, kwargs)
+        return self.transform(lambda v, p: (fn(v), p))
     group = group_by = map
 
     def starmap(self, fn):
@@ -213,25 +235,18 @@ class Distribution:
         Behaves like `distribution.map`, but the given function `fn` is called
         as `fn(*e)` instead of `fn(e)`.
         """
-        #                                            v
-        return self._nest(lambda e: Distribution((fn(*e), 1)))
-
-    def opposite(self):
-        """
-        Returns a distribution with the opposite odds for each item, already
-        normalized.
-        """
-        opposite_pairs = [(v, 1-p) for p, v in self]
-        scale = 1/sum(p for v, p in opposite_pairs)
-        return Distribution(*((v, scale*p) for v, p in opposite_pairs), force_flatten=self.force_flatten)
-    __neg__ = opposite
+        return self.transform(lambda v, p: (fn(*v), p))
 
     def utility(self, utility_function=lambda v: v):
-        return sum(p * utility_function(v) for v, p in self)
+        return sum(p * utility_function(v) for v, p in self.normalize())
 
     @property
     def expected_value(self):
         return self.utility()
+
+    @property
+    def mode(self):
+        return max(self.pairs, key=second)[0]
 
     def __repr__(self):
         return repr(self.pairs)
@@ -246,7 +261,7 @@ class Distribution:
         return hash(self.pairs)
 
     def __eq__(self, other):
-        return isinstance(other, Distribution) and self.pairs == other.pairs
+        return self.pairs == (other.pairs if isinstance(other, Distribution) else other)
 
 class Uniform(Distribution):
     """
@@ -321,7 +336,7 @@ powerball = Distribution(Win=1/292201338, Loss=REST)
 lightning_strike = Distribution({'Struck by lightning': 1/13500, 'Safe': REST})
 # http://news.nationalgeographic.com/2016/02/160209-meteorite-death-india-probability-odds/
 # Chance of being killed by meteorite in your lifetime.
-meteorite = Distribution({'Killed by meteorite': 700000, 'Safe': REST})
+meteorite = Distribution({'Killed by meteorite': 1/700000, 'Safe': REST})
 
 # Common filters and maps.
 import operator
@@ -496,8 +511,8 @@ if __name__ == '__main__':
     # Yes! Flip it twice, and retry until they are different. Then look at
     # the first one.
     (2*b_coin).filter(not_equals).map(first).plot()
-    #                    Tails  50.00% [====================                    ]
     #                    Heads  50.00% [====================                    ]
+    #                    Tails  50.00% [====================                    ]
 
 
     # Mixing solutions
@@ -528,7 +543,7 @@ if __name__ == '__main__':
     #                   orange   2.35% [=                                       ]
     #                    sugar   0.78% [                                        ]
     print(filtered, filtered.total)
-    # (('water', 247.5), ('orange', 6.0), ('sugar', 2.0)) 255.5
+    # (('orange', 6.0), ('water', 247.5), ('sugar', 2.0)) 255.5
 
     # Mix 1 unit of juice and sugar water at 50/50, resulting in 2.5% sugar.
     Solution({juice: 1, sugar_water: 1}).plot()
@@ -567,7 +582,7 @@ if __name__ == '__main__':
     # for that coin toss.
     for toss in tosses:
         # Must be normalized to avoid losing precision.
-        coins = coins.filter(lambda c: c[toss]).normalized()
+        coins = coins.filter(lambda c: c[toss]).normalize()
 
     coins.plot(sort=False)
     # (('Heads', 0.0), ('Tails', 1.0))   0.00% [                                        ]
@@ -668,15 +683,15 @@ if __name__ == '__main__':
 
     # But they behave like rock paper scissors:
 
-    join(dice_a, dice_b).map(lt).map(['A wins', 'B wins']).plot()
+    join(dice_a, dice_b).map(gt).map({True: 'A wins', False: 'B wins'}).plot()
     #                   A wins  55.56% [======================                  ]
     #                   B wins  44.44% [==================                      ]
 
-    join(dice_b, dice_c).map(lt).map(['B wins', 'C wins']).plot()
+    join(dice_b, dice_c).map(gt).map({True: 'B wins', False: 'C wins'}).plot()
     #                   B wins  55.56% [======================                  ]
     #                   C wins  44.44% [==================                      ]
 
-    join(dice_c, dice_a).map(lt).map(['C wins', 'A wins']).plot()
+    join(dice_c, dice_a).map(gt).map({True: 'C wins', False: 'A wins'}).plot()
     #                   C wins  55.56% [======================                  ]
     #                   A wins  44.44% [==================                      ]
 
@@ -725,41 +740,3 @@ if __name__ == '__main__':
 
     # She is right more often by guessing tails. But no event gave her any
     # evidence. Should she believe the coin landed tails?
-
-
-    # Ellsberg Paradox
-    # ----------------
-    # (simplified here to uniform distribution)
-
-    # In an urn, you have 9 balls of 3 colors: red, blue and yellow. 3 balls
-    # are known to be red. All the other balls are either blue or yellow.
-
-    red = Fixed('Red')
-    either = Uniform('Blue', 'Yellow')
-    urn = join(red, red, red, either, either, either, either, either, either)
-
-    random_ball = urn.map(lambda s: Uniform(*s))
-
-    # There are two lotteries:
-    # Lottery A: A random ball is chosen. You win a prize if the ball is red.
-    # Lottery B: A random ball is chosen. You win a prize if the ball is blue.
-    # Question: In which lottery would you want to participate?
-    random_ball.map({
-        'Red': 'Lottery A',
-        'Blue': 'Lottery B',
-        'Yellow': 'N/A',
-    }).plot()
-    #                Lottery A  33.33% [=============                           ]
-    #                Lottery B  33.33% [=============                           ]
-    #                      N/A  33.33% [=============                           ]
-
-    # Lottery X: A random ball is chosen. You win a prize if the ball is either red or yellow.
-    # Lottery Y: A random ball is chosen. You win a prize if the ball is either blue or yellow.
-    # Question: In which lottery would you want to participate?
-    random_ball.map({
-        'Red': 'Lottery A',
-        'Blue': 'Lottery B',
-        'Yellow': Uniform('Lottery A', 'Lottery B'),
-    }).plot()
-    #                Lottery A  50.00% [====================                    ]
-    #                Lottery B  50.00% [====================                    ]
