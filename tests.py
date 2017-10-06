@@ -131,58 +131,31 @@ class TestGenerate(unittest.TestCase):
 
 class TestPlot(unittest.TestCase):
     def test_empty(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution().plot()
-        self.assertEqual(f.getvalue(), '\n\n')
+        self.assertEqual(Distribution().as_plot(), '\n')
 
     def test_title(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution().plot('Title')
-        self.assertEqual(f.getvalue(), 'Title\n\n\n')
+        self.assertEqual(Distribution().as_plot('Title'), 'Title\n\n')
 
     def test_one_normalized(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=1).plot()
-        self.assertEqual(f.getvalue(), '\n                            A 100.00% [========================================]\n\n')
+        self.assertEqual(Distribution(A=1).as_plot(), '\n                            A 100.00% [========================================]\n')
 
     def test_one_not_normalized(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=0.5).plot()
-        self.assertEqual(f.getvalue(), '\n                            A 100.00% [========================================]\n\n')
+        self.assertEqual(Distribution(A=0.5).as_plot(), '\n                            A 100.00% [========================================]\n')
 
     def test_one_zero_filter(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=0).plot()
-        self.assertEqual(f.getvalue(), '\n\n')
+        self.assertEqual(Distribution(A=0).as_plot(), '\n')
 
     def test_one_zero_not_filter(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=0).plot(filter=False)
-        self.assertEqual(f.getvalue(), '\n                            A   0.00% [                                        ]\n\n')
+        self.assertEqual(Distribution(A=0).as_plot(filter=False), '\n                            A   0.00% [                                        ]\n')
 
     def test_two_sort(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=1, B=2).plot()
-        self.assertEqual(f.getvalue(), '\n                            B  66.67% [===========================             ]\n                            A  33.33% [=============                           ]\n\n') 
+        self.assertEqual(Distribution(A=1, B=2).as_plot(), '\n                            B  66.67% [===========================             ]\n                            A  33.33% [=============                           ]\n') 
 
     def test_two_not_sort(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution(A=1, B=2).plot(sort=False)
-        self.assertEqual(f.getvalue(), '\n                            A  33.33% [=============                           ]\n                            B  66.67% [===========================             ]\n\n')
+        self.assertEqual(Distribution(A=1, B=2).as_plot(sort=False), '\n                            A  33.33% [=============                           ]\n                            B  66.67% [===========================             ]\n')
 
     def test_non_hashable(self):
-        f = io.StringIO()
-        with redirect_stdout(f):
-            Distribution((list(), 1), force_merge=False).plot()
-        self.assertEqual(f.getvalue(), '\n                           [] 100.00% [========================================]\n\n')
+        self.assertEqual(Distribution((list(), 1), force_merge=False).as_plot(), '\n                           [] 100.00% [========================================]\n')
 
 class TestJoin(unittest.TestCase):
     def test_one_empty(self):

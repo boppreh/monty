@@ -150,7 +150,7 @@ class Distribution:
         counter = Counter(fn(self.generate(n)))
         return Distribution(*sorted(counter.items()), force_flatten=self.force_flatten)
 
-    def __repr__(self):
+    def __str__(self):
         """
         Returns a horizontal bar plot of the distribution. Useful in the REPL.
         For a representation as a list of tuples, use list(distribution).
@@ -162,8 +162,11 @@ class Distribution:
         Returns this distribution as a string representation of a horizontal bar
         plot.
         """
+        lines = []
+
         if title is not None:
-            print(title)
+            lines.append(title)
+        lines.append('')
 
         if sort:
             counter = Counter()
@@ -174,7 +177,6 @@ class Distribution:
         else:
             pairs = ((str(v), p) for v, p in self.normalize() if filter or p != 0)
 
-        lines = ['']
         for str_value, probability in pairs:
             bar = '['+(round(probability * 40) * '=').ljust(40)+']'
             # 29 is used to make the whole line be 80 characters, ensuring
@@ -275,9 +277,6 @@ class Distribution:
     @property
     def mode(self):
         return max(self.pairs, key=second)[0]
-
-    def __str__(self):
-        return str(self.pairs)
 
     def __iter__(self):
         return iter(self.pairs)
