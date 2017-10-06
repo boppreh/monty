@@ -150,9 +150,17 @@ class Distribution:
         counter = Counter(fn(self.generate(n)))
         return Distribution(*sorted(counter.items()), force_flatten=self.force_flatten)
 
-    def plot(self, title=None, sort=True, filter=True):
+    def __repr__(self):
         """
-        Prints a horizontal bar plot of values in the given distribution.
+        Returns a horizontal bar plot of the distribution. Useful in the REPL.
+        For a representation as a list of tuples, use list(distribution).
+        """
+        return self.as_plot(title=None, sort=False, filter=False)
+
+    def as_plot(self, title=None, sort=True, filter=True):
+        """
+        Returns this distribution as a string representation of a horizontal bar
+        plot.
         """
         if title is not None:
             print(title)
@@ -166,12 +174,21 @@ class Distribution:
         else:
             pairs = ((str(v), p) for v, p in self.normalize() if filter or p != 0)
 
+        lines = ['']
         for str_value, probability in pairs:
             bar = '['+(round(probability * 40) * '=').ljust(40)+']'
             # 29 is used to make the whole line be 80 characters, ensuring
             # every plot is aligned with every other plot.
-            print('{:>29} {:>7.2%} {}'.format(str_value, probability, bar))
-        print('')
+            lines.append('{:>29} {:>7.2%} {}'.format(str_value, probability, bar))
+        lines.append('')
+        return '\n'.join(lines)
+
+
+    def plot(self, title=None, sort=True, filter=True):
+        """
+        Prints a horizontal bar plot of values in the given distribution.
+        """
+        print(self.as_plot(title, sort, filter))
         return self
 
     def __mul__(self, n):
@@ -231,6 +248,12 @@ class Distribution:
         return self.transform(lambda v, p: (fn(v), p))
     group = group_by = map
 
+    def sum(self):
+        """
+        Shortcut for `self.map(sum)`.
+        """
+        return self.map(sum)
+
     def starmap(self, fn):
         """
         Behaves like `distribution.map`, but the given function `fn` is called
@@ -239,6 +262,10 @@ class Distribution:
         return self.transform(lambda v, p: (fn(*v), p))
 
     def utility(self, utility_function=lambda v: v):
+        """
+        Applies the utility function to each possible value, multiplied by the
+        probability of that value, and returns the sum of all weighted utilities.
+        """
         return sum(p * utility_function(v) for v, p in self.normalize())
 
     @property
@@ -249,8 +276,8 @@ class Distribution:
     def mode(self):
         return max(self.pairs, key=second)[0]
 
-    def __repr__(self):
-        return repr(self.pairs)
+    def __str__(self):
+        return str(self.pairs)
 
     def __iter__(self):
         return iter(self.pairs)
@@ -263,6 +290,20 @@ class Distribution:
 
     def __eq__(self, other):
         return self.pairs == (other.pairs if isinstance(other, Distribution) else other)
+
+    def most_likely(self):
+        """
+        Returns the pair (value, odds) with largest odds.
+        """
+        return max(self, key=lambda p: p[1])
+    most = most_likely
+
+    def least_likely(self):
+        """
+        Returns the pair (value, odds) with smallest odds.
+        """
+        return min(self, key=lambda p: p[1])
+    least = least_likely
 
 class Uniform(Distribution):
     """
@@ -317,6 +358,8 @@ P = Permutations
 F = Fixed
 
 # Common discrete distributions used in examples.
+bit = Uniform(0, 1)
+byte = Range(0x100)
 coin = Uniform('Heads', 'Tails')
 dice = die = d6 = Count(6)
 d4 = Count(4)
